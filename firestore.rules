@@ -1,0 +1,32 @@
+rules_version = '2';
+
+// Regras do Firestore para o app "Minhas Partidas de Xadrez".
+// Cole este conteúdo em: Firebase Console > Firestore Database > Regras.
+//
+// Lista de e-mails com acesso de administrador — precisa ser IDÊNTICA à
+// lista em lib/config/admins.ts.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in ['guigomes.ti@gmail.com'];
+    }
+
+    match /matches/{matchId} {
+      // Qualquer visitante pode ver as partidas registradas.
+      allow read: if true;
+
+      // Só o administrador pode registrar novas partidas.
+      allow create: if isAdmin()
+                    && request.resource.data.opponent is string
+                    && request.resource.data.opponent.size() > 0
+                    && request.resource.data.opponent.size() < 200
+                    && request.resource.data.date is string
+                    && request.resource.data.result in ['win', 'loss', 'draw']
+                    && request.resource.data.color in ['white', 'black'];
+
+      // Só o administrador pode editar ou remover partidas.
+      allow update, delete: if isAdmin();
+    }
+  }
+}
