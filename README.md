@@ -24,6 +24,8 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 ### Públicas
 - Página inicial com estatísticas (partidas, vitórias, derrotas, empates, taxa de aproveitamento)
 - Lista de partidas registradas (adversário, resultado, cor, controle de tempo, abertura, notas)
+- Filtro por tipo de partida (Torneio / Lichess / Chess.com / Manual)
+- Tabuleiro navegável para revisar o PGN lance a lance
 - Modo escuro / claro
 
 ### Administrativas
@@ -159,7 +161,7 @@ minhas-partidas-xadrez/
 
 | Coleção Firestore | Descrição |
 |---|---|
-| `matches` | Partidas registradas (data, adversário, resultado, cor, controle de tempo, abertura, notas). Cada partida também guarda `source` (`manual` / `lichess` / `chesscom`) e `source_id` (ID do jogo no provedor), usados para evitar importações duplicadas. |
+| `matches` | Partidas registradas (data, adversário, resultado, cor, controle de tempo, abertura, notas, PGN). Cada partida tem um `type` (`tournament` / `lichess` / `chesscom` / `manual`) usado para filtrar a lista, além de `source` (`manual` / `lichess` / `chesscom`) e `source_id` (ID do jogo no provedor), usados para evitar importações duplicadas. |
 
 - Qualquer visitante pode ler as partidas (regra `allow read`).
 - Só os e-mails listados em `firestore.rules` conseguem criar, editar ou remover partidas — essa é a proteção real dos dados. O arquivo `lib/config/admins.ts` só controla a experiência visual (o que o app mostra), não substitui as regras do Firestore.

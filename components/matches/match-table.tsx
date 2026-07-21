@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
-import type { Match, MatchColor } from '@/types/match';
+import type { Match, MatchColor, MatchType } from '@/types/match';
 
 // chess.js só entra no bundle quando o usuário abre o tabuleiro.
 const PgnBoard = dynamic(() => import('./pgn-board').then((m) => m.PgnBoard), {
@@ -47,10 +47,46 @@ const RESULT_BADGE_CLASS: Record<Match['result'], string> = {
 
 const RESULT_ORDER: Record<Match['result'], number> = { win: 0, draw: 1, loss: 2 };
 
-const SOURCE_LABEL: Partial<Record<Match['source'], string>> = {
+const TYPE_LABEL: Record<MatchType, string> = {
+  tournament: '🏆 Torneio',
   lichess: 'Lichess',
   chesscom: 'Chess.com',
+  manual: 'Manual',
 };
+
+const TYPE_ORDER: MatchType[] = ['tournament', 'lichess', 'chesscom', 'manual'];
+
+const TYPE_OPTIONS: { value: MatchType; label: string }[] = [
+  { value: 'manual', label: 'Manual' },
+  { value: 'tournament', label: 'Torneio' },
+  { value: 'lichess', label: 'Lichess' },
+  { value: 'chesscom', label: 'Chess.com' },
+];
+
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+        active
+          ? 'border-brand-600 bg-brand-50 text-brand-700 dark:border-brand-500 dark:bg-brand-950 dark:text-brand-300'
+          : 'border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800'
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 function useEscapeKey(onEscape: () => void) {
   useEffect(() => {
@@ -119,6 +155,7 @@ function EditMatchModal({
   const [opponent, setOpponent] = useState(match.opponent);
   const [result, setResult] = useState<Match['result']>(match.result);
   const [color, setColor] = useState<Match['color']>(match.color);
+  const [type, setType] = useState<Match['type']>(match.type);
   const [timeControl, setTimeControl] = useState(match.time_control ?? '');
   const [opening, setOpening] = useState(match.opening ?? '');
   const [notes, setNotes] = useState(match.notes ?? '');
@@ -186,6 +223,13 @@ function EditMatchModal({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
+            <Select label="Tipo" value={type} onChange={(e) => setType(e.target.value as Match['type'])}>
+              {TYPE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
             <Select label="Controle de tempo" value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
               <option value="">Não informado</option>
               <option value="Bullet">Bullet</option>
@@ -193,8 +237,9 @@ function EditMatchModal({
               <option value="Rápido">Rápido</option>
               <option value="Clássico">Clássico</option>
             </Select>
-            <Input label="Abertura" value={opening} onChange={(e) => setOpening(e.target.value)} />
           </div>
+
+          <Input label="Abertura" value={opening} onChange={(e) => setOpening(e.target.value)} />
 
           <Textarea label="Notas" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
@@ -204,7 +249,7 @@ function EditMatchModal({
             Cancelar
           </Button>
           <Button
-            onClick={() => onSave({ date, opponent, result, color, time_control: timeControl, opening, notes })}
+            onClick={() => onSave({ date, opponent, result, color, type, time_control: timeControl, opening, notes })}
             loading={pending}
           >
             Salvar
@@ -306,6 +351,7 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
   const updateMatch = useUpdateMatch();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [typeFilter, setTypeFilter] = useState<MatchType | 'all'>('all');
   const [toDelete, setToDelete] = useState<Match | null>(null);
   const [toEdit, setToEdit] = useState<Match | null>(null);
 
@@ -346,6 +392,19 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
     });
   }, [matches, sortKey, sortDirection]);
 
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<MatchType, number>> = {};
+    for (const m of matches) counts[m.type] = (counts[m.type] ?? 0) + 1;
+    return counts;
+  }, [matches]);
+
+  const visible = useMemo(
+    () => (typeFilter === 'all' ? sorted : sorted.filter((m) => m.type === typeFilter)),
+    [sorted, typeFilter]
+  );
+
+  const availableTypes = TYPE_ORDER.filter((t) => (typeCounts[t] ?? 0) > 0);
+
   if (!matches.length) {
     return (
       <EmptyState
@@ -358,6 +417,20 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
 
   return (
     <div>
+      {availableTypes.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Tipo:</span>
+          <FilterChip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+            Todos <span className="opacity-60">{matches.length}</span>
+          </FilterChip>
+          {availableTypes.map((t) => (
+            <FilterChip key={t} active={typeFilter === t} onClick={() => setTypeFilter(t)}>
+              {TYPE_LABEL[t]} <span className="opacity-60">{typeCounts[t]}</span>
+            </FilterChip>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Ordenar por:</span>
         {SORT_OPTIONS.map((opt) => (
@@ -378,8 +451,13 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
         ))}
       </div>
 
+      {visible.length === 0 ? (
+        <p className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
+          Nenhuma partida deste tipo.
+        </p>
+      ) : (
       <div className="space-y-3">
-        {sorted.map((m) => (
+        {visible.map((m) => (
           <div key={m.id} className="card p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -409,11 +487,9 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               {m.opening && (
                 <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{m.opening}</Badge>
               )}
-              {SOURCE_LABEL[m.source] && (
-                <Badge className="bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
-                  {SOURCE_LABEL[m.source]}
-                </Badge>
-              )}
+              <Badge className="bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+                {TYPE_LABEL[m.type]}
+              </Badge>
             </div>
 
             {m.notes && (
@@ -424,6 +500,7 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
           </div>
         ))}
       </div>
+      )}
 
       {toDelete && (
         <DeleteConfirmModal

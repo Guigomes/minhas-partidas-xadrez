@@ -26,6 +26,7 @@ const matchSchema = z.object({
   opponent: z.string().trim().min(2, 'Informe o nome do adversário'),
   result: z.enum(['win', 'loss', 'draw']),
   color: z.enum(['white', 'black']),
+  type: z.enum(['manual', 'tournament', 'lichess', 'chesscom']),
   time_control: z.string().trim().max(50).optional(),
   opening: z.string().trim().max(100).optional(),
   notes: z.string().trim().max(500).optional(),
@@ -64,6 +65,7 @@ export function MatchForm() {
       opponent: '',
       result: 'win',
       color: 'white',
+      type: 'manual',
       time_control: '',
       opening: '',
       notes: '',
@@ -75,7 +77,7 @@ export function MatchForm() {
 
   async function onSubmit(values: MatchValues) {
     await createMatch.mutateAsync(values);
-    reset({ date: today(), opponent: '', result: 'win', color: 'white', time_control: '', opening: '', notes: '' });
+    reset({ date: today(), opponent: '', result: 'win', color: 'white', type: 'manual', time_control: '', opening: '', notes: '' });
   }
 
   return (
@@ -135,6 +137,12 @@ export function MatchForm() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
+        <Select label="Tipo" error={errors.type?.message} {...register('type')}>
+          <option value="manual">Manual</option>
+          <option value="tournament">Torneio</option>
+          <option value="lichess">Lichess</option>
+          <option value="chesscom">Chess.com</option>
+        </Select>
         <Select label="Controle de tempo" error={errors.time_control?.message} {...register('time_control')}>
           <option value="">Não informado</option>
           <option value="Bullet">Bullet</option>
@@ -142,13 +150,14 @@ export function MatchForm() {
           <option value="Rápido">Rápido</option>
           <option value="Clássico">Clássico</option>
         </Select>
-        <Input
-          label="Abertura"
-          placeholder="Ex: Siciliana"
-          error={errors.opening?.message}
-          {...register('opening')}
-        />
       </div>
+
+      <Input
+        label="Abertura"
+        placeholder="Ex: Siciliana"
+        error={errors.opening?.message}
+        {...register('opening')}
+      />
 
       <Textarea
         label="Notas (opcional)"

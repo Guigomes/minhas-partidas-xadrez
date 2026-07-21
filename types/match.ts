@@ -2,12 +2,17 @@ export type MatchResult = 'win' | 'loss' | 'draw';
 export type MatchColor = 'white' | 'black';
 export type MatchSource = 'manual' | 'lichess' | 'chesscom';
 
+// Categoria da partida, escolhida pelo usuário / derivada da origem.
+// Usada para filtrar a lista.
+export type MatchType = 'tournament' | 'lichess' | 'chesscom' | 'manual';
+
 export type Match = {
   id: string;
   date: string;
   opponent: string;
   result: MatchResult;
   color: MatchColor;
+  type: MatchType;
   time_control: string | null;
   opening: string | null;
   notes: string | null;
@@ -22,6 +27,7 @@ export type MatchFormValues = {
   opponent: string;
   result: MatchResult;
   color: MatchColor;
+  type: MatchType;
   time_control?: string;
   opening?: string;
   notes?: string;
