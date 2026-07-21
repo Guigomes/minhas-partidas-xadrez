@@ -77,6 +77,7 @@ function normalizeGame(game: ChessComGame, username: string): ImportedGame | nul
     color,
     time_control: game.time_class ? (CHESSCOM_CLASS_LABELS[game.time_class] ?? null) : null,
     opening: openingFromPgn(game.pgn),
+    pgn: game.pgn?.trim() || null,
   };
 }
 

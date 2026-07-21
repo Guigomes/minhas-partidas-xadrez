@@ -203,6 +203,51 @@ function EditMatchModal({
   );
 }
 
+function PgnDisclosure({ pgn }: { pgn: string }) {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(pgn);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // navegador sem acesso à área de transferência — ignora
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
+      >
+        <span>{open ? '▼' : '▶'}</span>
+        {open ? 'Ocultar PGN' : 'Ver PGN'}
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+          <div className="flex items-center justify-end border-b border-gray-200 dark:border-gray-800 px-2 py-1">
+            <button
+              type="button"
+              onClick={copy}
+              className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400"
+            >
+              {copied ? 'Copiado!' : 'Copiar'}
+            </button>
+          </div>
+          <pre className="max-h-56 overflow-auto p-3 text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap break-words font-mono">
+            {pgn}
+          </pre>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MatchTable({ matches, editable = false }: { matches: Match[]; editable?: boolean }) {
   const deleteMatch = useDeleteMatch();
   const updateMatch = useUpdateMatch();
@@ -321,6 +366,8 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
             {m.notes && (
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{m.notes}</p>
             )}
+
+            {m.pgn && <PgnDisclosure pgn={m.pgn} />}
           </div>
         ))}
       </div>
