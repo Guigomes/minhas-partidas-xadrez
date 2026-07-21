@@ -29,6 +29,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 ### Administrativas
 - Login do administrador com Google
 - Registro de novas partidas (formulário)
+- **Importação automática do Lichess e do Chess.com** (por nome de usuário), com prévia e sem duplicar o que já foi importado
 - Edição e remoção de partidas na lista
 
 ---
@@ -103,9 +104,11 @@ minhas-partidas-xadrez/
 │   ├── error.tsx
 │   ├── providers.tsx               # TanStack Query provider
 │   ├── login/page.tsx              # "Entrar com Google"
-│   └── admin/
-│       ├── layout.tsx              # Guard de autenticação (client-side)
-│       └── page.tsx                # Painel: formulário + resumo + lista editável
+│   ├── admin/
+│   │   ├── layout.tsx              # Guard de autenticação (client-side)
+│   │   └── page.tsx                # Painel: importar + formulário + resumo + lista
+│   └── api/
+│       └── import/route.ts         # Rota serverless que busca partidas nos provedores
 │
 ├── components/
 │   ├── layout/
@@ -123,15 +126,20 @@ minhas-partidas-xadrez/
 │   │   └── theme-toggle.tsx
 │   └── matches/
 │       ├── match-form.tsx
+│       ├── match-import.tsx        # UI de importação (Lichess / Chess.com)
 │       ├── match-summary.tsx
 │       └── match-table.tsx
 │
 ├── lib/
 │   ├── firebase/
 │   │   └── client.ts                # Firebase App/Auth/Firestore init
+│   ├── import/
+│   │   ├── lichess.ts               # Busca + normalização de partidas do Lichess
+│   │   └── chesscom.ts              # Busca + normalização de partidas do Chess.com
 │   ├── hooks/
 │   │   ├── use-auth.ts
-│   │   └── use-matches.ts
+│   │   ├── use-import.ts            # Hook que chama /api/import
+│   │   └── use-matches.ts           # CRUD + gravação em lote (importação)
 │   ├── utils/
 │   │   ├── cn.ts
 │   │   └── date.ts
@@ -151,11 +159,22 @@ minhas-partidas-xadrez/
 
 | Coleção Firestore | Descrição |
 |---|---|
-| `matches` | Partidas registradas (data, adversário, resultado, cor, controle de tempo, abertura, notas) |
+| `matches` | Partidas registradas (data, adversário, resultado, cor, controle de tempo, abertura, notas). Cada partida também guarda `source` (`manual` / `lichess` / `chesscom`) e `source_id` (ID do jogo no provedor), usados para evitar importações duplicadas. |
 
 - Qualquer visitante pode ler as partidas (regra `allow read`).
 - Só os e-mails listados em `firestore.rules` conseguem criar, editar ou remover partidas — essa é a proteção real dos dados. O arquivo `lib/config/admins.ts` só controla a experiência visual (o que o app mostra), não substitui as regras do Firestore.
 - Não existe verificação de sessão no servidor (sem middleware): o guard de `/admin` roda no navegador e a segurança de fato vem do Firestore recusar a escrita para quem não está na lista.
+
+---
+
+## Importação de partidas (Lichess / Chess.com)
+
+No painel `/admin`, a seção **Importar partidas** busca seus jogos direto das APIs públicas dos provedores (sem necessidade de token):
+
+- A rota `app/api/import/route.ts` roda no servidor (serverless no Vercel), consulta o provedor e devolve as partidas já normalizadas para o modelo `Match`. Rodar no servidor evita CORS e permite enviar o `User-Agent` que o Chess.com exige.
+- O cliente compara com o que já existe (`source` + `source_id`), mostra uma prévia com a contagem de **novas** vs **já importadas** e só grava no Firestore quando você confirma (em lotes, via `writeBatch`).
+- Filtros disponíveis: máximo de partidas, data mínima (`desde`) e somente ranqueadas.
+- Apenas o xadrez padrão é importado (variantes como Chess960 são ignoradas).
 
 ---
 
@@ -176,6 +195,7 @@ Depois do primeiro deploy, adicione o domínio de produção (ex: `seu-projeto.v
 
 | Limitação | Observação |
 |---|---|
-| Sem importação de PGN | As partidas são registradas manualmente, sem parser de arquivos PGN |
+| Importação não guarda os lances (PGN) | Importa só os metadados (resultado, cor, abertura, controle de tempo); os movimentos da partida não são salvos |
 | Sem gráficos de evolução | O resumo mostra totais e taxa de aproveitamento, sem histórico visual ao longo do tempo |
+| Importação manual (sob demanda) | Não há sincronização automática/agendada — você dispara a importação quando quiser no painel |
 | Sem verificação de sessão no servidor | O guard de `/admin` é client-side; a proteção real dos dados é a regra do Firestore |

@@ -12,11 +12,15 @@ import {
   serverTimestamp,
   Timestamp,
   updateDoc,
+  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import type { Match, MatchFormValues } from '@/types/match';
+import type { ImportedGame, Match, MatchFormValues } from '@/types/match';
 
 const MATCHES_COLLECTION = 'matches';
+
+// Firestore limita cada writeBatch a 500 operações; deixamos folga.
+const BATCH_SIZE = 450;
 
 export function useCreateMatch() {
   const qc = useQueryClient();
@@ -30,6 +34,8 @@ export function useCreateMatch() {
         time_control: values.time_control || null,
         opening: values.opening || null,
         notes: values.notes || null,
+        source: 'manual',
+        source_id: null,
         created_at: serverTimestamp(),
       });
     },
@@ -58,6 +64,8 @@ export function useMatches() {
           time_control: data.time_control ?? null,
           opening: data.opening ?? null,
           notes: data.notes ?? null,
+          source: data.source ?? 'manual',
+          source_id: data.source_id ?? null,
           created_at: createdAt.toISOString(),
         };
       });
@@ -92,6 +100,38 @@ export function useDeleteMatch() {
   return useMutation({
     mutationFn: async (id: string) => {
       await deleteDoc(doc(db, MATCHES_COLLECTION, id));
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['matches'] });
+    },
+  });
+}
+
+export function useBulkCreateMatches() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (games: ImportedGame[]) => {
+      for (let i = 0; i < games.length; i += BATCH_SIZE) {
+        const chunk = games.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        for (const g of chunk) {
+          const ref = doc(collection(db, MATCHES_COLLECTION));
+          batch.set(ref, {
+            date: g.date,
+            opponent: g.opponent,
+            result: g.result,
+            color: g.color,
+            time_control: g.time_control ?? null,
+            opening: g.opening ?? null,
+            notes: null,
+            source: g.source,
+            source_id: g.source_id,
+            created_at: serverTimestamp(),
+          });
+        }
+        await batch.commit();
+      }
+      return games.length;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['matches'] });
