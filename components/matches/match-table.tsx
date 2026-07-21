@@ -35,6 +35,11 @@ const RESULT_BADGE_CLASS: Record<Match['result'], string> = {
 
 const RESULT_ORDER: Record<Match['result'], number> = { win: 0, draw: 1, loss: 2 };
 
+const SOURCE_LABEL: Partial<Record<Match['source'], string>> = {
+  lichess: 'Lichess',
+  chesscom: 'Chess.com',
+};
+
 function useEscapeKey(onEscape: () => void) {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -305,6 +310,11 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               )}
               {m.opening && (
                 <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">{m.opening}</Badge>
+              )}
+              {SOURCE_LABEL[m.source] && (
+                <Badge className="bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
+                  {SOURCE_LABEL[m.source]}
+                </Badge>
               )}
             </div>
 
