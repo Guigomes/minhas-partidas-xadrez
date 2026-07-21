@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useDeleteMatch, useUpdateMatch, type MatchEditValues } from '@/lib/hooks/use-matches';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,9 +9,20 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
-import type { Match } from '@/types/match';
+import type { Match, MatchColor } from '@/types/match';
+
+// chess.js só entra no bundle quando o usuário abre o tabuleiro.
+const PgnBoard = dynamic(() => import('./pgn-board').then((m) => m.PgnBoard), {
+  ssr: false,
+  loading: () => (
+    <div className="flex justify-center py-16">
+      <Spinner className="h-8 w-8" />
+    </div>
+  ),
+});
 
 type SortKey = 'date' | 'opponent' | 'result';
 type SortDirection = 'asc' | 'desc';
@@ -203,9 +215,39 @@ function EditMatchModal({
   );
 }
 
-function PgnDisclosure({ pgn }: { pgn: string }) {
+function PgnBoardModal({ pgn, orientation, onClose }: { pgn: string; orientation: MatchColor; onClose: () => void }) {
+  useEscapeKey(onClose);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tabuleiro da partida"
+    >
+      <div className="card w-full max-w-md p-5 sm:p-6 border-t-4 border-t-brand-500 shadow-2xl my-8" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-display text-lg text-gray-900 dark:text-gray-100">♟️ Tabuleiro</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fechar"
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 text-xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+        <PgnBoard pgn={pgn} orientation={orientation} />
+      </div>
+    </div>
+  );
+}
+
+function PgnDisclosure({ pgn, orientation }: { pgn: string; orientation: MatchColor }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [boardOpen, setBoardOpen] = useState(false);
 
   async function copy() {
     try {
@@ -219,14 +261,25 @@ function PgnDisclosure({ pgn }: { pgn: string }) {
 
   return (
     <div className="mt-3">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1 text-xs font-medium text-brand-600 dark:text-brand-400 hover:underline"
-      >
-        <span>{open ? '▼' : '▶'}</span>
-        {open ? 'Ocultar PGN' : 'Ver PGN'}
-      </button>
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={() => setBoardOpen(true)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-brand-600 dark:text-brand-400 hover:underline"
+        >
+          ♟️ Abrir no tabuleiro
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 dark:text-gray-400 hover:underline"
+        >
+          <span>{open ? '▼' : '▶'}</span>
+          {open ? 'Ocultar PGN' : 'Ver PGN'}
+        </button>
+      </div>
+
+      {boardOpen && <PgnBoardModal pgn={pgn} orientation={orientation} onClose={() => setBoardOpen(false)} />}
 
       {open && (
         <div className="mt-2 rounded-lg border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
@@ -367,7 +420,7 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words">{m.notes}</p>
             )}
 
-            {m.pgn && <PgnDisclosure pgn={m.pgn} />}
+            {m.pgn && <PgnDisclosure pgn={m.pgn} orientation={m.color} />}
           </div>
         ))}
       </div>
