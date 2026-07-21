@@ -1,6 +1,6 @@
 export type MatchResult = 'win' | 'loss' | 'draw';
 export type MatchColor = 'white' | 'black';
-export type MatchSource = 'manual' | 'lichess' | 'chesscom';
+export type MatchSource = 'manual' | 'lichess' | 'chesscom' | 'chessresults';
 
 // Categoria da partida, escolhida pelo usuário / derivada da origem.
 // Usada para filtrar a lista.
@@ -45,6 +45,7 @@ export type ImportedGame = {
   time_control: string | null;
   opening: string | null;
   pgn: string | null;
+  notes?: string | null;
 };
 
 export type ImportProvider = Exclude<MatchSource, 'manual'>;

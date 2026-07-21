@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { fetchLichessGames } from '@/lib/import/lichess';
 import { fetchChessComGames } from '@/lib/import/chesscom';
+import { fetchChessResultsGames } from '@/lib/import/chessresults';
 import type { ImportProvider } from '@/types/match';
 
 export const dynamic = 'force-dynamic';
@@ -18,23 +19,34 @@ function parseError(error: unknown): { status: number; message: string } {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const provider = searchParams.get('provider') as ImportProvider | null;
-  const username = searchParams.get('username')?.trim();
 
-  if (provider !== 'lichess' && provider !== 'chesscom') {
-    return NextResponse.json({ message: 'Provedor inválido. Use "lichess" ou "chesscom".' }, { status: 400 });
+  if (provider !== 'lichess' && provider !== 'chesscom' && provider !== 'chessresults') {
+    return NextResponse.json({ message: 'Provedor inválido.' }, { status: 400 });
   }
-  if (!username) {
-    return NextResponse.json({ message: 'Informe o nome de usuário.' }, { status: 400 });
-  }
-
-  const maxParam = Number(searchParams.get('max') ?? '100');
-  const max = Number.isFinite(maxParam) ? Math.min(Math.max(Math.trunc(maxParam), 1), MAX_GAMES_CAP) : 100;
-
-  const sinceParam = searchParams.get('since'); // YYYY-MM-DD
-  const since = sinceParam ? new Date(`${sinceParam}T00:00:00Z`).getTime() : undefined;
-  const ratedOnly = searchParams.get('rated') === 'true';
 
   try {
+    // chess-results é baseado em URL da ficha do jogador, não em usuário.
+    if (provider === 'chessresults') {
+      const url = searchParams.get('url')?.trim();
+      if (!url) {
+        return NextResponse.json({ message: 'Informe a URL da ficha do jogador no chess-results.' }, { status: 400 });
+      }
+      const games = await fetchChessResultsGames({ url });
+      return NextResponse.json({ games });
+    }
+
+    const username = searchParams.get('username')?.trim();
+    if (!username) {
+      return NextResponse.json({ message: 'Informe o nome de usuário.' }, { status: 400 });
+    }
+
+    const maxParam = Number(searchParams.get('max') ?? '100');
+    const max = Number.isFinite(maxParam) ? Math.min(Math.max(Math.trunc(maxParam), 1), MAX_GAMES_CAP) : 100;
+
+    const sinceParam = searchParams.get('since'); // YYYY-MM-DD
+    const since = sinceParam ? new Date(`${sinceParam}T00:00:00Z`).getTime() : undefined;
+    const ratedOnly = searchParams.get('rated') === 'true';
+
     const games =
       provider === 'lichess'
         ? await fetchLichessGames({ username, max, since, ratedOnly })

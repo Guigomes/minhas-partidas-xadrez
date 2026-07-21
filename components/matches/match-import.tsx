@@ -14,6 +14,7 @@ import type { ImportedGame, ImportProvider } from '@/types/match';
 const PROVIDERS: { value: ImportProvider; label: string }[] = [
   { value: 'lichess', label: 'Lichess' },
   { value: 'chesscom', label: 'Chess.com' },
+  { value: 'chessresults', label: 'Chess-Results (torneio)' },
 ];
 
 const RESULT_LABEL = { win: '🏆 Vitória', loss: '❌ Derrota', draw: '➖ Empate' } as const;
@@ -21,10 +22,13 @@ const RESULT_LABEL = { win: '🏆 Vitória', loss: '❌ Derrota', draw: '➖ Emp
 export function MatchImport() {
   const [provider, setProvider] = useState<ImportProvider>('lichess');
   const [username, setUsername] = useState('');
+  const [url, setUrl] = useState('');
   const [max, setMax] = useState('50');
   const [since, setSince] = useState('');
   const [ratedOnly, setRatedOnly] = useState(false);
   const [imported, setImported] = useState<number | null>(null);
+
+  const isChessResults = provider === 'chessresults';
 
   const { data: existing } = useMatches();
   const importGames = useImportGames();
@@ -45,17 +49,22 @@ export function MatchImport() {
   );
   const duplicates = found.length - newGames.length;
 
+  const canSearch = isChessResults ? url.trim().length > 0 : username.trim().length > 0;
+
   async function onSearch() {
     setImported(null);
-    const trimmed = username.trim();
-    if (!trimmed) return;
-    await importGames.mutateAsync({
-      provider,
-      username: trimmed,
-      max: Number(max) || 50,
-      since: since || undefined,
-      ratedOnly,
-    });
+    if (!canSearch) return;
+    if (isChessResults) {
+      await importGames.mutateAsync({ provider, url: url.trim() });
+    } else {
+      await importGames.mutateAsync({
+        provider,
+        username: username.trim(),
+        max: Number(max) || 50,
+        since: since || undefined,
+        ratedOnly,
+      });
+    }
   }
 
   async function onImport() {
@@ -70,57 +79,72 @@ export function MatchImport() {
       <div>
         <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">⬇️ Importar partidas</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Busque suas partidas no Lichess ou Chess.com. Nada é gravado até você confirmar.
+          Busque suas partidas no Lichess, Chess.com ou de um torneio no Chess-Results. Nada é gravado até você confirmar.
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Select
-          label="Provedor"
-          value={provider}
-          onChange={(e) => {
-            setProvider(e.target.value as ImportProvider);
-            importGames.reset();
-            setImported(null);
-          }}
-        >
-          {PROVIDERS.map((p) => (
-            <option key={p.value} value={p.value}>
-              {p.label}
-            </option>
-          ))}
-        </Select>
-        <Input
-          label="Usuário"
-          placeholder={provider === 'lichess' ? 'seu_usuario_lichess' : 'seu_usuario_chesscom'}
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-        />
-      </div>
+      <Select
+        label="Provedor"
+        value={provider}
+        onChange={(e) => {
+          setProvider(e.target.value as ImportProvider);
+          importGames.reset();
+          setImported(null);
+        }}
+      >
+        {PROVIDERS.map((p) => (
+          <option key={p.value} value={p.value}>
+            {p.label}
+          </option>
+        ))}
+      </Select>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Input
-          label="Máx. de partidas"
-          type="number"
-          min={1}
-          max={300}
-          value={max}
-          onChange={(e) => setMax(e.target.value)}
-        />
-        <Input label="Desde (opcional)" type="date" value={since} onChange={(e) => setSince(e.target.value)} />
-      </div>
+      {isChessResults ? (
+        <div>
+          <Input
+            label="URL da ficha do jogador (chess-results.com)"
+            placeholder="https://s2.chess-results.com/tnr...aspx?...&snr=10"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Cole o link da página do jogador no torneio. Importa os resultados por rodada (sem os lances) como partidas do tipo Torneio.
+          </p>
+        </div>
+      ) : (
+        <>
+          <Input
+            label="Usuário"
+            placeholder={provider === 'lichess' ? 'seu_usuario_lichess' : 'seu_usuario_chesscom'}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
 
-      <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-        <input
-          type="checkbox"
-          checked={ratedOnly}
-          onChange={(e) => setRatedOnly(e.target.checked)}
-          className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-        />
-        Somente partidas ranqueadas
-      </label>
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Máx. de partidas"
+              type="number"
+              min={1}
+              max={300}
+              value={max}
+              onChange={(e) => setMax(e.target.value)}
+            />
+            <Input label="Desde (opcional)" type="date" value={since} onChange={(e) => setSince(e.target.value)} />
+          </div>
 
-      <Button type="button" className="w-full" onClick={onSearch} loading={importGames.isPending} disabled={!username.trim()}>
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              type="checkbox"
+              checked={ratedOnly}
+              onChange={(e) => setRatedOnly(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            Somente partidas ranqueadas
+          </label>
+        </>
+      )}
+
+      <Button type="button" className="w-full" onClick={onSearch} loading={importGames.isPending} disabled={!canSearch}>
         Buscar partidas
       </Button>
 
