@@ -5,8 +5,9 @@ import type { ImportedGame, ImportProvider } from '@/types/match';
 
 export type ImportParams = {
   provider: ImportProvider;
-  username: string;
-  max: number;
+  username?: string;
+  url?: string;
+  max?: number;
   since?: string;
   ratedOnly?: boolean;
 };
@@ -14,13 +15,15 @@ export type ImportParams = {
 export function useImportGames() {
   return useMutation({
     mutationFn: async (params: ImportParams): Promise<ImportedGame[]> => {
-      const query = new URLSearchParams({
-        provider: params.provider,
-        username: params.username,
-        max: String(params.max),
-      });
-      if (params.since) query.set('since', params.since);
-      if (params.ratedOnly) query.set('rated', 'true');
+      const query = new URLSearchParams({ provider: params.provider });
+      if (params.provider === 'chessresults') {
+        query.set('url', params.url ?? '');
+      } else {
+        query.set('username', params.username ?? '');
+        query.set('max', String(params.max ?? 50));
+        if (params.since) query.set('since', params.since);
+        if (params.ratedOnly) query.set('rated', 'true');
+      }
 
       const res = await fetch(`/api/import?${query}`);
       const body = await res.json().catch(() => ({}));

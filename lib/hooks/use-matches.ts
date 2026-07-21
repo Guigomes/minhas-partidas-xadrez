@@ -26,7 +26,13 @@ const BATCH_SIZE = 450;
 function deriveType(data: { type?: MatchType; source?: MatchSource }): MatchType {
   if (data.type) return data.type;
   if (data.source === 'lichess' || data.source === 'chesscom') return data.source;
+  if (data.source === 'chessresults') return 'tournament';
   return 'manual';
+}
+
+// Tipo de uma partida importada, a partir da origem.
+function typeFromSource(source: ImportedGame['source']): MatchType {
+  return source === 'chessresults' ? 'tournament' : source;
 }
 
 export function useCreateMatch() {
@@ -133,10 +139,10 @@ export function useBulkCreateMatches() {
             opponent: g.opponent,
             result: g.result,
             color: g.color,
-            type: g.source,
+            type: typeFromSource(g.source),
             time_control: g.time_control ?? null,
             opening: g.opening ?? null,
-            notes: null,
+            notes: g.notes ?? null,
             pgn: g.pgn ?? null,
             source: g.source,
             source_id: g.source_id,

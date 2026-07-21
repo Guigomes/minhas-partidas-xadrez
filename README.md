@@ -31,7 +31,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 ### Administrativas
 - Login do administrador com Google
 - Registro de novas partidas (formulário)
-- **Importação automática do Lichess e do Chess.com** (por nome de usuário), com prévia e sem duplicar o que já foi importado
+- **Importação automática do Lichess e do Chess.com** (por nome de usuário) e de torneios do **Chess-Results** (pela URL da ficha do jogador), com prévia e sem duplicar o que já foi importado
 - Edição e remoção de partidas na lista
 
 ---
@@ -175,8 +175,8 @@ No painel `/admin`, a seção **Importar partidas** busca seus jogos direto das 
 
 - A rota `app/api/import/route.ts` roda no servidor (serverless no Vercel), consulta o provedor e devolve as partidas já normalizadas para o modelo `Match`. Rodar no servidor evita CORS e permite enviar o `User-Agent` que o Chess.com exige.
 - O cliente compara com o que já existe (`source` + `source_id`), mostra uma prévia com a contagem de **novas** vs **já importadas** e só grava no Firestore quando você confirma (em lotes, via `writeBatch`).
-- Filtros disponíveis: máximo de partidas, data mínima (`desde`) e somente ranqueadas.
-- Apenas o xadrez padrão é importado (variantes como Chess960 são ignoradas).
+- **Lichess / Chess.com** (por nome de usuário): filtros de máximo de partidas, data mínima (`desde`) e somente ranqueadas; importa o PGN completo. Apenas o xadrez padrão é importado (variantes como Chess960 são ignoradas).
+- **Chess-Results** (pela URL da ficha do jogador, `art=9`): esse site não tem API, então a rota faz *scraping* da tabela de resultados por rodada (adversário, cor, resultado) e cria partidas do tipo **Torneio**. Só há acesso a `chess-results.com` (proteção contra SSRF). Como o site publica só os resultados, **não há PGN**; a data usada é a do torneio (última atualização) e pode ser ajustada manualmente. A rodada e o rating do adversário ficam nas notas.
 
 ---
 
