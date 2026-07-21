@@ -15,12 +15,19 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
-import type { ImportedGame, Match, MatchFormValues } from '@/types/match';
+import type { ImportedGame, Match, MatchFormValues, MatchSource, MatchType } from '@/types/match';
 
 const MATCHES_COLLECTION = 'matches';
 
 // Firestore limita cada writeBatch a 500 operações; deixamos folga.
 const BATCH_SIZE = 450;
+
+// Partidas gravadas antes do campo `type` derivam o tipo da origem.
+function deriveType(data: { type?: MatchType; source?: MatchSource }): MatchType {
+  if (data.type) return data.type;
+  if (data.source === 'lichess' || data.source === 'chesscom') return data.source;
+  return 'manual';
+}
 
 export function useCreateMatch() {
   const qc = useQueryClient();
@@ -31,6 +38,7 @@ export function useCreateMatch() {
         opponent: values.opponent,
         result: values.result,
         color: values.color,
+        type: values.type,
         time_control: values.time_control || null,
         opening: values.opening || null,
         notes: values.notes || null,
@@ -62,6 +70,7 @@ export function useMatches() {
           opponent: data.opponent,
           result: data.result,
           color: data.color,
+          type: deriveType(data),
           time_control: data.time_control ?? null,
           opening: data.opening ?? null,
           notes: data.notes ?? null,
@@ -86,6 +95,7 @@ export function useUpdateMatch() {
         opponent: values.opponent,
         result: values.result,
         color: values.color,
+        type: values.type,
         time_control: values.time_control || null,
         opening: values.opening || null,
         notes: values.notes || null,
@@ -123,6 +133,7 @@ export function useBulkCreateMatches() {
             opponent: g.opponent,
             result: g.result,
             color: g.color,
+            type: g.source,
             time_control: g.time_control ?? null,
             opening: g.opening ?? null,
             notes: null,
