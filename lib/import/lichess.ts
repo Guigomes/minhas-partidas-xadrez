@@ -23,6 +23,7 @@ type LichessGame = {
   winner?: 'white' | 'black';
   players: { white: LichessPlayer; black: LichessPlayer };
   opening?: { name?: string };
+  pgn?: string;
 };
 
 function playerName(player: LichessPlayer): string {
@@ -58,6 +59,7 @@ function normalizeGame(game: LichessGame, username: string): ImportedGame | null
     color,
     time_control: game.speed ? (LICHESS_SPEED_LABELS[game.speed] ?? null) : null,
     opening: game.opening?.name ?? null,
+    pgn: game.pgn?.trim() || null,
   };
 }
 
@@ -71,8 +73,10 @@ export async function fetchLichessGames(params: {
   const query = new URLSearchParams({
     max: String(max),
     opening: 'true',
-    moves: 'false',
-    pgnInJson: 'false',
+    moves: 'true',
+    pgnInJson: 'true',
+    clocks: 'false',
+    evals: 'false',
   });
   if (since) query.set('since', String(since));
   if (ratedOnly) query.set('rated', 'true');

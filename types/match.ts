@@ -11,6 +11,7 @@ export type Match = {
   time_control: string | null;
   opening: string | null;
   notes: string | null;
+  pgn: string | null;
   source: MatchSource;
   source_id: string | null;
   created_at: string;
@@ -37,6 +38,7 @@ export type ImportedGame = {
   color: MatchColor;
   time_control: string | null;
   opening: string | null;
+  pgn: string | null;
 };
 
 export type ImportProvider = Exclude<MatchSource, 'manual'>;
