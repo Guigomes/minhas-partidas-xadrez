@@ -39,4 +39,16 @@
     background-size: 40px 40px;
     background-position: 0 0, 0 20px, 20px -20px, -20px 0px;
   }
+
+  /* Tokens dos gráficos de estatísticas (components/matches/match-charts.tsx) */
+  .viz-root {
+    --chart-grid: #e1e0d9;
+    --chart-axis: #c3c2b7;
+    --chart-series-1: #2a78d6;
+  }
+  .dark .viz-root {
+    --chart-grid: #2c2c2a;
+    --chart-axis: #383835;
+    --chart-series-1: #3987e5;
+  }
 }

@@ -2,6 +2,7 @@
 
 import { useMatches } from '@/lib/hooks/use-matches';
 import { MatchSummary } from '@/components/matches/match-summary';
+import { MatchCharts } from '@/components/matches/match-charts';
 import { MatchTable } from '@/components/matches/match-table';
 import { PageSpinner } from '@/components/ui/spinner';
 import { player } from '@/lib/config/player';
@@ -30,6 +31,7 @@ export default function HomePage() {
         ) : (
           <>
             <MatchSummary matches={matches ?? []} />
+            <MatchCharts matches={matches ?? []} />
             <MatchTable matches={matches ?? []} />
           </>
         )}
