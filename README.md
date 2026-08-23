@@ -25,6 +25,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 - Página inicial com estatísticas (partidas, vitórias, derrotas, empates, taxa de aproveitamento)
 - Lista de partidas registradas (adversário, resultado, cor, controle de tempo, abertura, notas)
 - Filtro por tipo de partida (Torneio / Lichess / Chess.com / Manual)
+- Gráficos de estatísticas: resultados (parte-todo), desempenho por cor e evolução da taxa de aproveitamento ao longo dos meses, com tooltip ao passar o mouse e tabela alternativa
 - Tabuleiro navegável para revisar o PGN lance a lance
 - Modo escuro / claro
 
