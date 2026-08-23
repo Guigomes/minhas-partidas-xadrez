@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Spinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
-import type { Match, MatchColor, MatchType } from '@/types/match';
+import type { Match, MatchColor, MatchSource, MatchType } from '@/types/match';
 
 // chess.js só entra no bundle quando o usuário abre o tabuleiro.
 const PgnBoard = dynamic(() => import('./pgn-board').then((m) => m.PgnBoard), {
@@ -63,6 +63,15 @@ const TYPE_OPTIONS: { value: MatchType; label: string }[] = [
   { value: 'chesscom', label: 'Chess.com' },
 ];
 
+const SOURCE_LABEL: Record<MatchSource, string> = {
+  manual: 'Manual',
+  lichess: 'Lichess',
+  chesscom: 'Chess.com',
+  chessresults: 'Chess-Results',
+};
+
+const SOURCE_ORDER: MatchSource[] = ['lichess', 'chesscom', 'chessresults', 'manual'];
+
 function FilterChip({
   active,
   onClick,
@@ -86,6 +95,16 @@ function FilterChip({
       {children}
     </button>
   );
+}
+
+// Remove acentos para a busca não depender de digitar exatamente igual.
+function normalize(s: string): string {
+  return s
+    .normalize('NFD')
+    .split('')
+    .filter((ch) => ch.charCodeAt(0) < 0x0300 || ch.charCodeAt(0) > 0x036f)
+    .join('')
+    .toLowerCase();
 }
 
 function useEscapeKey(onEscape: () => void) {
@@ -352,6 +371,10 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [typeFilter, setTypeFilter] = useState<MatchType | 'all'>('all');
+  const [sourceFilter, setSourceFilter] = useState<MatchSource | 'all'>('all');
+  const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [toDelete, setToDelete] = useState<Match | null>(null);
   const [toEdit, setToEdit] = useState<Match | null>(null);
 
@@ -398,12 +421,36 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
     return counts;
   }, [matches]);
 
-  const visible = useMemo(
-    () => (typeFilter === 'all' ? sorted : sorted.filter((m) => m.type === typeFilter)),
-    [sorted, typeFilter]
-  );
+  const sourceCounts = useMemo(() => {
+    const counts: Partial<Record<MatchSource, number>> = {};
+    for (const m of matches) counts[m.source] = (counts[m.source] ?? 0) + 1;
+    return counts;
+  }, [matches]);
+
+  const normalizedSearch = normalize(search.trim());
+
+  const visible = useMemo(() => {
+    return sorted.filter((m) => {
+      if (typeFilter !== 'all' && m.type !== typeFilter) return false;
+      if (sourceFilter !== 'all' && m.source !== sourceFilter) return false;
+      if (dateFrom && m.date < dateFrom) return false;
+      if (dateTo && m.date > dateTo) return false;
+      if (normalizedSearch && !normalize(m.opponent).includes(normalizedSearch)) return false;
+      return true;
+    });
+  }, [sorted, typeFilter, sourceFilter, dateFrom, dateTo, normalizedSearch]);
 
   const availableTypes = TYPE_ORDER.filter((t) => (typeCounts[t] ?? 0) > 0);
+  const availableSources = SOURCE_ORDER.filter((s) => (sourceCounts[s] ?? 0) > 0);
+  const hasActiveFilters = typeFilter !== 'all' || sourceFilter !== 'all' || !!dateFrom || !!dateTo || !!search.trim();
+
+  function clearFilters() {
+    setTypeFilter('all');
+    setSourceFilter('all');
+    setSearch('');
+    setDateFrom('');
+    setDateTo('');
+  }
 
   if (!matches.length) {
     return (
@@ -417,6 +464,17 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
 
   return (
     <div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+        <Input
+          label="Buscar adversário"
+          placeholder="Nome do adversário..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <Input label="De" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+        <Input label="Até" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+      </div>
+
       {availableTypes.length > 1 && (
         <div className="flex flex-wrap items-center gap-2 mb-3">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Tipo:</span>
@@ -429,6 +487,30 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
             </FilterChip>
           ))}
         </div>
+      )}
+
+      {availableSources.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Origem:</span>
+          <FilterChip active={sourceFilter === 'all'} onClick={() => setSourceFilter('all')}>
+            Todas <span className="opacity-60">{matches.length}</span>
+          </FilterChip>
+          {availableSources.map((s) => (
+            <FilterChip key={s} active={sourceFilter === s} onClick={() => setSourceFilter(s)}>
+              {SOURCE_LABEL[s]} <span className="opacity-60">{sourceCounts[s]}</span>
+            </FilterChip>
+          ))}
+        </div>
+      )}
+
+      {hasActiveFilters && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="text-xs text-gray-500 dark:text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 hover:underline mb-3"
+        >
+          Limpar filtros
+        </button>
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -453,7 +535,7 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
 
       {visible.length === 0 ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 py-8 text-center">
-          Nenhuma partida deste tipo.
+          Nenhuma partida encontrada com esses filtros.
         </p>
       ) : (
       <div className="space-y-3">
@@ -490,6 +572,11 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               <Badge className="bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
                 {TYPE_LABEL[m.type]}
               </Badge>
+              {m.source === 'chessresults' && (
+                <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                  via Chess-Results
+                </Badge>
+              )}
             </div>
 
             {m.notes && (
