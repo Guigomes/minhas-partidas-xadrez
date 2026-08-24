@@ -5,16 +5,18 @@ import { useImportGames } from '@/lib/hooks/use-import';
 import { useBulkCreateMatches, useMatches } from '@/lib/hooks/use-matches';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
+import { player } from '@/lib/config/player';
 import type { ImportedGame, ImportProvider } from '@/types/match';
 
 const PROVIDERS: { value: ImportProvider; label: string }[] = [
   { value: 'lichess', label: 'Lichess' },
   { value: 'chesscom', label: 'Chess.com' },
-  { value: 'chessresults', label: 'Chess-Results (um torneio)' },
+  { value: 'chessresults', label: 'Chess-Results (uma ou mais URLs)' },
   { value: 'cbx', label: 'CBX (todos os torneios do jogador)' },
 ];
 
@@ -108,14 +110,17 @@ export function MatchImport() {
 
       {isChessResults ? (
         <div>
-          <Input
-            label="URL da ficha do jogador (chess-results.com)"
-            placeholder="https://s2.chess-results.com/tnr...aspx?...&snr=10"
+          <Textarea
+            label="URL(s) de torneio no chess-results.com"
+            placeholder={`https://chess-results.com/tnr...aspx\nhttps://chess-results.com/tnr...aspx?...&snr=10`}
+            rows={4}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Cole o link da página do jogador no torneio. Importa os resultados por rodada (sem os lances) como partidas do tipo Torneio.
+            Cole uma URL por linha — pode ser a página geral do torneio ou a página do jogador. Se a URL não tiver o
+            número do jogador (<code>snr</code>), procuramos automaticamente por &quot;{player.fullName}&quot; na
+            lista de participantes. Importa os resultados por rodada (sem os lances) como partidas do tipo Torneio.
           </p>
         </div>
       ) : isCbx ? (
@@ -241,7 +246,7 @@ export function MatchImport() {
                   <ul className="space-y-1.5">
                     {skipped.map((s, i) => (
                       <li key={i} className="text-xs text-gray-600 dark:text-gray-400">
-                        <span className="font-medium text-gray-700 dark:text-gray-300">{s.name}</span> — {s.reason}
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{s.label}</span> — {s.reason}
                       </li>
                     ))}
                   </ul>

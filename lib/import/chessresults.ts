@@ -1,5 +1,6 @@
 import type { ImportedGame, MatchColor, MatchResult } from '@/types/match';
 import { stripHtmlTags } from './html-entities';
+import { findPlayerSnr } from './chessresults-search';
 
 // O chess-results.com não tem API: importamos raspando a ficha do jogador
 // (art=9). A página traz apenas os RESULTADOS por rodada (adversário, cor,
@@ -49,9 +50,10 @@ function parsePlayerRoundsHtml(html: string, tnr: string, snr: string): Imported
   const tournament = tournamentName(html);
 
   const games: ImportedGame[] = [];
-  // Cada linha de rodada começa com <tr class="CRng...">. A célula de
+  // Cada linha de rodada começa com <tr class="CRng..."> na maioria dos
+  // modelos de página, mas alguns usam "CRg..." (sem o "n"). A célula de
   // resultado tem uma tabela aninhada (com a cor), então tratamos à parte.
-  const parts = html.split(/<tr class="CRng[^"]*">/).slice(1);
+  const parts = html.split(/<tr class="CRn?g[^"]*">/).slice(1);
 
   for (const part of parts) {
     const resMatch = part.match(
@@ -67,11 +69,18 @@ function parsePlayerRoundsHtml(html: string, tnr: string, snr: string): Imported
 
     const color = parseColor(resMatch[1]);
     const result = parseResult(resMatch[2]);
-    const opponent = cells[3];
+    // Depois de round/board/No.Ini (índices 0-2) vêm nome do adversário,
+    // rating e cidade — mas algumas páginas têm uma coluna extra (título
+    // FIDE) nesse meio, então não assumimos índices fixos: pulamos células
+    // vazias e distinguimos rating/cidade pelo formato (rating é numérico).
+    const rest = cells.slice(3).filter((c) => c !== '');
+    // Algumas páginas do chess-results deixam uma vírgula sobrando no fim
+    // do nome quando o campo de título (categoria FIDE) fica vazio.
+    const opponent = rest[0]?.replace(/,\s*$/, '').trim();
     if (!color || !result || !opponent) continue;
 
-    const rating = cells[4];
-    const city = cells[5];
+    const rating = rest[1] && /^[\d.,]+$/.test(rest[1]) ? rest[1] : '';
+    const city = rest[2] && !/^[\d.,½]+$/.test(rest[2]) ? rest[2] : '';
     const notesParts = [tournament, `Rodada ${round}`];
     if (rating) notesParts.push(`Adversário ${rating}${city ? ` (${city})` : ''}`);
 
@@ -129,4 +138,66 @@ export async function fetchGamesByTnrSnr(params: { tnr: string; snr: string }): 
   if (!res.ok) throw { status: 502, message: `Erro ao consultar o chess-results (HTTP ${res.status}).` };
   const html = await res.text();
   return parsePlayerRoundsHtml(html, tnr, snr);
+}
+
+export type ChessResultsUrlSkip = { label: string; reason: string };
+
+// Importa a partir de uma ou mais URLs de torneio, uma por linha. Quando a
+// URL já traz "snr" (o fluxo original, colado da ficha do jogador), usa
+// direto; quando não traz (ex: URL da página geral do torneio), resolve o
+// número do jogador automaticamente pelo nome completo configurado em
+// lib/config/player.ts, do mesmo jeito que o fluxo de importação via CBX.
+export async function fetchChessResultsGamesFromUrls(params: {
+  urls: string[];
+  playerFullName: string;
+}): Promise<{ games: ImportedGame[]; skipped: ChessResultsUrlSkip[] }> {
+  const games: ImportedGame[] = [];
+  const skipped: ChessResultsUrlSkip[] = [];
+
+  for (const raw of params.urls) {
+    const url = raw.trim();
+    if (!url) continue;
+
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      skipped.push({ label: url, reason: 'URL inválida.' });
+      continue;
+    }
+    if (!ALLOWED_HOST.test(parsed.hostname)) {
+      skipped.push({ label: url, reason: 'Precisa ser uma URL do chess-results.com.' });
+      continue;
+    }
+    const tnr = parsed.pathname.match(/tnr(\d+)/)?.[1];
+    if (!tnr) {
+      skipped.push({ label: url, reason: 'Não encontrei o número do torneio (tnr) nessa URL.' });
+      continue;
+    }
+
+    try {
+      if (parsed.searchParams.get('snr')) {
+        games.push(...(await fetchChessResultsGames({ url })));
+        continue;
+      }
+
+      const snr = await findPlayerSnr({ tnr, playerName: params.playerFullName });
+      if (!snr) {
+        skipped.push({
+          label: url,
+          reason: `"${params.playerFullName}" não foi encontrado na lista de participantes desse torneio.`,
+        });
+        continue;
+      }
+      games.push(...(await fetchGamesByTnrSnr({ tnr, snr })));
+    } catch (error) {
+      const message =
+        error && typeof error === 'object' && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : 'Erro ao importar esse torneio.';
+      skipped.push({ label: url, reason: message });
+    }
+  }
+
+  return { games, skipped };
 }

@@ -58,7 +58,7 @@ export async function fetchCbxProfile(cbxId: string): Promise<{ playerName: stri
   return { playerName, tournaments };
 }
 
-export type CbxSkippedTournament = { name: string; reason: string };
+export type CbxSkippedTournament = { label: string; reason: string };
 
 // A checagem por nome na lista de participantes é o teste definitivo (só
 // confirma quando encontra o nome exato); o custo é uma requisição extra
@@ -87,7 +87,7 @@ async function resolveTournament(
   try {
     candidates = await searchTournamentsByDateRange({ dateFrom: tournament.dateStart, dateTo: tournament.dateEnd });
   } catch {
-    return { skipped: { name: tournament.name, reason: 'Erro ao buscar no chess-results.' } };
+    return { skipped: { label: tournament.name, reason: 'Erro ao buscar no chess-results.' } };
   }
 
   const ranked = candidates
@@ -97,7 +97,7 @@ async function resolveTournament(
     .slice(0, MAX_CANDIDATES_TO_CHECK);
 
   if (ranked.length === 0) {
-    return { skipped: { name: tournament.name, reason: 'Nenhum torneio parecido encontrado no chess-results nessa data.' } };
+    return { skipped: { label: tournament.name, reason: 'Nenhum torneio parecido encontrado no chess-results nessa data.' } };
   }
 
   for (const candidate of ranked) {
@@ -110,7 +110,7 @@ async function resolveTournament(
 
   return {
     skipped: {
-      name: tournament.name,
+      label: tournament.name,
       reason: `Encontramos ${ranked.length} torneio(s) parecido(s) no chess-results, mas "${playerName}" não aparece na lista de participantes de nenhum.`,
     },
   };
