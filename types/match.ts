@@ -48,4 +48,8 @@ export type ImportedGame = {
   notes?: string | null;
 };
 
-export type ImportProvider = Exclude<MatchSource, 'manual'>;
+// 'cbx' não é uma origem de partida por si só (os jogos encontrados por
+// esse caminho continuam com source: 'chessresults') — é só mais um jeito
+// de descobrir quais partidas importar, buscando os torneios do jogador na
+// CBX e cruzando com o chess-results.
+export type ImportProvider = Exclude<MatchSource, 'manual'> | 'cbx';
