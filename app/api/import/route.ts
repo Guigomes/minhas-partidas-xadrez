@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { fetchLichessGames } from '@/lib/import/lichess';
 import { fetchChessComGames } from '@/lib/import/chesscom';
-import { fetchChessResultsGames } from '@/lib/import/chessresults';
+import { fetchChessResultsGamesFromUrls } from '@/lib/import/chessresults';
 import { importFromCbx } from '@/lib/import/cbx';
+import { player } from '@/lib/config/player';
 import type { ImportProvider } from '@/types/match';
 
 export const dynamic = 'force-dynamic';
@@ -37,14 +38,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ games, skipped });
     }
 
-    // chess-results é baseado em URL da ficha do jogador, não em usuário.
+    // chess-results é baseado em URL(s) de torneio, uma por linha. Quando a
+    // URL não traz o snr do jogador, resolve automaticamente pelo nome
+    // completo configurado (lib/config/player.ts).
     if (provider === 'chessresults') {
-      const url = searchParams.get('url')?.trim();
-      if (!url) {
-        return NextResponse.json({ message: 'Informe a URL da ficha do jogador no chess-results.' }, { status: 400 });
+      const raw = searchParams.get('url')?.trim();
+      if (!raw) {
+        return NextResponse.json({ message: 'Informe pelo menos uma URL de torneio no chess-results.' }, { status: 400 });
       }
-      const games = await fetchChessResultsGames({ url });
-      return NextResponse.json({ games });
+      const urls = raw.split(/\r?\n/).map((u) => u.trim()).filter(Boolean);
+      const { games, skipped } = await fetchChessResultsGamesFromUrls({ urls, playerFullName: player.fullName });
+      return NextResponse.json({ games, skipped });
     }
 
     const username = searchParams.get('username')?.trim();

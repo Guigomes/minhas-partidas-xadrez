@@ -13,7 +13,7 @@ export type ImportParams = {
   ratedOnly?: boolean;
 };
 
-export type SkippedTournament = { name: string; reason: string };
+export type SkippedTournament = { label: string; reason: string };
 
 export type ImportResult = {
   games: ImportedGame[];

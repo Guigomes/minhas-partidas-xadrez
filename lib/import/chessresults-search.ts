@@ -135,13 +135,17 @@ export async function findPlayerSnr(params: { tnr: string; playerName: string })
   const html = await res.text();
 
   const target = nameWordSet(params.playerName);
-  const rows = html.match(/<tr class="CRng[12][^"]*">[\s\S]*?<\/tr>/g) ?? [];
+  // A classe da linha varia entre modelos de página ("CRng1"/"CRng2" na
+  // maioria, "CRg1"/"CRg2" em outras); e a coluna do nome nem sempre é a
+  // seguinte ao "No.Ini." — algumas listagens têm uma coluna extra (título
+  // FIDE, categoria) entre elas. Por isso procuramos o nome em qualquer
+  // célula após o snr, em vez de assumir um índice fixo.
+  const rows = html.match(/<tr class="CRn?g[12][^"]*">[\s\S]*?<\/tr>/g) ?? [];
   for (const row of rows) {
     const cells = [...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => stripHtmlTags(m[1]));
     const snr = cells[1];
-    const name = cells[2];
-    if (!snr || !name || !/^\d+$/.test(snr)) continue;
-    if (nameWordSet(name) === target) return snr;
+    if (!snr || !/^\d+$/.test(snr)) continue;
+    if (cells.slice(2).some((c) => c && nameWordSet(c) === target)) return snr;
   }
   return null;
 }
