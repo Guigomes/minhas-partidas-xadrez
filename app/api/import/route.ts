@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { fetchLichessGames } from '@/lib/import/lichess';
 import { fetchChessComGames } from '@/lib/import/chesscom';
 import { fetchChessResultsGames } from '@/lib/import/chessresults';
+import { importFromCbx } from '@/lib/import/cbx';
 import type { ImportProvider } from '@/types/match';
 
 export const dynamic = 'force-dynamic';
@@ -20,11 +21,22 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const provider = searchParams.get('provider') as ImportProvider | null;
 
-  if (provider !== 'lichess' && provider !== 'chesscom' && provider !== 'chessresults') {
+  if (provider !== 'lichess' && provider !== 'chesscom' && provider !== 'chessresults' && provider !== 'cbx') {
     return NextResponse.json({ message: 'Provedor inválido.' }, { status: 400 });
   }
 
   try {
+    // CBX: descobre os torneios do jogador na CBX e cruza cada um com o
+    // chess-results automaticamente (sem precisar colar URL nenhuma).
+    if (provider === 'cbx') {
+      const cbxId = searchParams.get('cbxId')?.trim();
+      if (!cbxId) {
+        return NextResponse.json({ message: 'Informe o ID CBX do jogador.' }, { status: 400 });
+      }
+      const { games, skipped } = await importFromCbx(cbxId);
+      return NextResponse.json({ games, skipped });
+    }
+
     // chess-results é baseado em URL da ficha do jogador, não em usuário.
     if (provider === 'chessresults') {
       const url = searchParams.get('url')?.trim();

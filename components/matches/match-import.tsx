@@ -14,7 +14,8 @@ import type { ImportedGame, ImportProvider } from '@/types/match';
 const PROVIDERS: { value: ImportProvider; label: string }[] = [
   { value: 'lichess', label: 'Lichess' },
   { value: 'chesscom', label: 'Chess.com' },
-  { value: 'chessresults', label: 'Chess-Results (torneio)' },
+  { value: 'chessresults', label: 'Chess-Results (um torneio)' },
+  { value: 'cbx', label: 'CBX (todos os torneios do jogador)' },
 ];
 
 const RESULT_LABEL = { win: '🏆 Vitória', loss: '❌ Derrota', draw: '➖ Empate' } as const;
@@ -23,12 +24,14 @@ export function MatchImport() {
   const [provider, setProvider] = useState<ImportProvider>('lichess');
   const [username, setUsername] = useState('');
   const [url, setUrl] = useState('');
+  const [cbxId, setCbxId] = useState('');
   const [max, setMax] = useState('50');
   const [since, setSince] = useState('');
   const [ratedOnly, setRatedOnly] = useState(false);
   const [imported, setImported] = useState<number | null>(null);
 
   const isChessResults = provider === 'chessresults';
+  const isCbx = provider === 'cbx';
 
   const { data: existing } = useMatches();
   const importGames = useImportGames();
@@ -42,20 +45,23 @@ export function MatchImport() {
     return set;
   }, [existing]);
 
-  const found = useMemo(() => importGames.data ?? [], [importGames.data]);
+  const found = useMemo(() => importGames.data?.games ?? [], [importGames.data]);
+  const skipped = importGames.data?.skipped ?? [];
   const newGames = useMemo(
     () => found.filter((g) => !existingKeys.has(`${g.source}:${g.source_id}`)),
     [found, existingKeys]
   );
   const duplicates = found.length - newGames.length;
 
-  const canSearch = isChessResults ? url.trim().length > 0 : username.trim().length > 0;
+  const canSearch = isChessResults ? url.trim().length > 0 : isCbx ? cbxId.trim().length > 0 : username.trim().length > 0;
 
   async function onSearch() {
     setImported(null);
     if (!canSearch) return;
     if (isChessResults) {
       await importGames.mutateAsync({ provider, url: url.trim() });
+    } else if (isCbx) {
+      await importGames.mutateAsync({ provider, cbxId: cbxId.trim() });
     } else {
       await importGames.mutateAsync({
         provider,
@@ -79,7 +85,8 @@ export function MatchImport() {
       <div>
         <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">⬇️ Importar partidas</h2>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Busque suas partidas no Lichess, Chess.com ou de um torneio no Chess-Results. Nada é gravado até você confirmar.
+          Busque suas partidas no Lichess, Chess.com, de um torneio no Chess-Results, ou de todos os torneios de um
+          jogador pelo ID da CBX. Nada é gravado até você confirmar.
         </p>
       </div>
 
@@ -109,6 +116,20 @@ export function MatchImport() {
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
             Cole o link da página do jogador no torneio. Importa os resultados por rodada (sem os lances) como partidas do tipo Torneio.
+          </p>
+        </div>
+      ) : isCbx ? (
+        <div>
+          <Input
+            label="ID CBX do jogador"
+            placeholder="107485"
+            value={cbxId}
+            onChange={(e) => setCbxId(e.target.value)}
+          />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Busca todos os torneios do jogador na CBX e procura cada um automaticamente no chess-results, checando o
+            nome do jogador na lista de participantes antes de importar. Pode levar alguns segundos. Torneios que não
+            forem encontrados com segurança aparecem numa lista separada, pra você buscar manualmente se quiser.
           </p>
         </div>
       ) : (
@@ -145,7 +166,7 @@ export function MatchImport() {
       )}
 
       <Button type="button" className="w-full" onClick={onSearch} loading={importGames.isPending} disabled={!canSearch}>
-        Buscar partidas
+        {isCbx ? 'Buscar torneios' : 'Buscar partidas'}
       </Button>
 
       {importGames.isError && (
@@ -162,50 +183,69 @@ export function MatchImport() {
 
       {importGames.isSuccess && (
         <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-3">
-          {found.length === 0 ? (
+          {found.length === 0 && skipped.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">Nenhuma partida encontrada com esses filtros.</p>
           ) : (
             <>
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
-                  {found.length} encontradas
-                </Badge>
-                <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
-                  {newGames.length} novas
-                </Badge>
-                {duplicates > 0 && (
-                  <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                    {duplicates} já importadas
-                  </Badge>
-                )}
-              </div>
+              {found.length > 0 && (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 text-sm">
+                    <Badge className="bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                      {found.length} encontradas
+                    </Badge>
+                    <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                      {newGames.length} novas
+                    </Badge>
+                    {duplicates > 0 && (
+                      <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                        {duplicates} já importadas
+                      </Badge>
+                    )}
+                  </div>
 
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
-                {newGames.slice(0, 50).map((g) => (
-                  <ImportRow key={`${g.source}:${g.source_id}`} game={g} />
-                ))}
-                {newGames.length > 50 && (
-                  <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-1">
-                    …e mais {newGames.length - 50} partidas
+                  <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                    {newGames.slice(0, 50).map((g) => (
+                      <ImportRow key={`${g.source}:${g.source_id}`} game={g} />
+                    ))}
+                    {newGames.length > 50 && (
+                      <p className="text-xs text-gray-400 dark:text-gray-500 text-center pt-1">
+                        …e mais {newGames.length - 50} partidas
+                      </p>
+                    )}
+                  </div>
+
+                  <Button
+                    type="button"
+                    className="w-full"
+                    size="lg"
+                    onClick={onImport}
+                    loading={bulkCreate.isPending}
+                    disabled={newGames.length === 0}
+                  >
+                    {newGames.length > 0 ? `Importar ${newGames.length} novas partidas` : 'Nada novo para importar'}
+                  </Button>
+
+                  {bulkCreate.isError && (
+                    <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
+                      Não foi possível gravar as partidas. Tente novamente.
+                    </p>
+                  )}
+                </>
+              )}
+
+              {skipped.length > 0 && (
+                <div className="rounded-lg border border-gray-200 dark:border-gray-800 p-3">
+                  <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                    {skipped.length} {skipped.length === 1 ? 'torneio não encontrado' : 'torneios não encontrados'} automaticamente:
                   </p>
-                )}
-              </div>
-
-              <Button
-                type="button"
-                className="w-full"
-                size="lg"
-                onClick={onImport}
-                loading={bulkCreate.isPending}
-                disabled={newGames.length === 0}
-              >
-                {newGames.length > 0 ? `Importar ${newGames.length} novas partidas` : 'Nada novo para importar'}
-              </Button>
-
-              {bulkCreate.isError && (
-                <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 rounded-lg px-3 py-2">
-                  Não foi possível gravar as partidas. Tente novamente.
-                </p>
+                  <ul className="space-y-1.5">
+                    {skipped.map((s, i) => (
+                      <li key={i} className="text-xs text-gray-600 dark:text-gray-400">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{s.name}</span> — {s.reason}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </>
           )}

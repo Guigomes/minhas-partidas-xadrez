@@ -1,14 +1,11 @@
 import type { ImportedGame, MatchColor, MatchResult } from '@/types/match';
+import { stripHtmlTags } from './html-entities';
 
 // O chess-results.com não tem API: importamos raspando a ficha do jogador
 // (art=9). A página traz apenas os RESULTADOS por rodada (adversário, cor,
 // resultado) — não os lances (PGN), que esse tipo de torneio não publica.
 
 const ALLOWED_HOST = /(^|\.)chess-results\.com$/;
-
-function stripTags(s: string): string {
-  return s.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').trim();
-}
 
 function parseColor(resCell: string): MatchColor | null {
   if (/Farbew/.test(resCell)) return 'white';
@@ -36,7 +33,7 @@ function tournamentName(html: string): string {
   const title = html.match(/<title>([\s\S]*?)<\/title>/);
   if (title) {
     const parts = title[1].split(' - ');
-    return stripTags(parts[parts.length - 1]).slice(0, 120);
+    return stripHtmlTags(parts[parts.length - 1]).slice(0, 120);
   }
   return 'Torneio';
 }
@@ -47,31 +44,7 @@ function idsFromUrl(url: string): { tnr: string; snr: string } {
   return { tnr, snr };
 }
 
-export async function fetchChessResultsGames(params: { url: string }): Promise<ImportedGame[]> {
-  const { url } = params;
-
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    throw { status: 400, message: 'URL inválida.' };
-  }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw { status: 400, message: 'URL inválida.' };
-  }
-  if (!ALLOWED_HOST.test(parsed.hostname)) {
-    throw { status: 400, message: 'A URL precisa ser uma ficha de jogador do chess-results.com.' };
-  }
-
-  // Garante a visão de resultados do jogador (art=9).
-  parsed.searchParams.set('art', '9');
-  parsed.searchParams.set('lan', '2');
-
-  const res = await fetch(parsed.toString(), { headers: { 'User-Agent': 'minhas-partidas-xadrez' } });
-  if (!res.ok) throw { status: 502, message: `Erro ao consultar o chess-results (HTTP ${res.status}).` };
-  const html = await res.text();
-
-  const { tnr, snr } = idsFromUrl(parsed.toString());
+function parsePlayerRoundsHtml(html: string, tnr: string, snr: string): ImportedGame[] {
   const date = tournamentDate(html);
   const tournament = tournamentName(html);
 
@@ -86,7 +59,7 @@ export async function fetchChessResultsGames(params: { url: string }): Promise<I
     );
     const cleaned = part.replace(/<table>[\s\S]*?<\/table>/g, '');
     const rowHtml = cleaned.split('</tr>')[0];
-    const cells = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => stripTags(m[1]));
+    const cells = [...rowHtml.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((m) => stripHtmlTags(m[1]));
 
     const round = cells[0];
     if (!/^\d+$/.test(round)) continue; // pula cabeçalho / linhas inválidas
@@ -117,4 +90,43 @@ export async function fetchChessResultsGames(params: { url: string }): Promise<I
   }
 
   return games;
+}
+
+export async function fetchChessResultsGames(params: { url: string }): Promise<ImportedGame[]> {
+  const { url } = params;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw { status: 400, message: 'URL inválida.' };
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw { status: 400, message: 'URL inválida.' };
+  }
+  if (!ALLOWED_HOST.test(parsed.hostname)) {
+    throw { status: 400, message: 'A URL precisa ser uma ficha de jogador do chess-results.com.' };
+  }
+
+  // Garante a visão de resultados do jogador (art=9).
+  parsed.searchParams.set('art', '9');
+  parsed.searchParams.set('lan', '2');
+
+  const res = await fetch(parsed.toString(), { headers: { 'User-Agent': 'minhas-partidas-xadrez' } });
+  if (!res.ok) throw { status: 502, message: `Erro ao consultar o chess-results (HTTP ${res.status}).` };
+  const html = await res.text();
+
+  const { tnr, snr } = idsFromUrl(parsed.toString());
+  return parsePlayerRoundsHtml(html, tnr, snr);
+}
+
+// Usado pelo fluxo de importação via CBX, quando já sabemos o tnr (torneio)
+// e o snr (número do jogador dentro dele), sem precisar da URL completa.
+export async function fetchGamesByTnrSnr(params: { tnr: string; snr: string }): Promise<ImportedGame[]> {
+  const { tnr, snr } = params;
+  const url = `https://chess-results.com/tnr${tnr}.aspx?lan=2&art=9&snr=${snr}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'minhas-partidas-xadrez' } });
+  if (!res.ok) throw { status: 502, message: `Erro ao consultar o chess-results (HTTP ${res.status}).` };
+  const html = await res.text();
+  return parsePlayerRoundsHtml(html, tnr, snr);
 }

@@ -32,7 +32,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 ### Administrativas
 - Login do administrador com Google
 - Registro de novas partidas (formulário)
-- **Importação automática do Lichess e do Chess.com** (por nome de usuário) e de torneios do **Chess-Results** (pela URL da ficha do jogador), com prévia e sem duplicar o que já foi importado
+- **Importação automática** do Lichess e do Chess.com (por nome de usuário), de um torneio do Chess-Results (pela URL da ficha do jogador), ou de **todos os torneios de um jogador pelo ID da CBX** (cruza automaticamente com o chess-results) — com prévia e sem duplicar o que já foi importado
 - Edição e remoção de partidas na lista
 
 ---
@@ -129,8 +129,9 @@ minhas-partidas-xadrez/
 │   │   └── theme-toggle.tsx
 │   └── matches/
 │       ├── match-form.tsx
-│       ├── match-import.tsx        # UI de importação (Lichess / Chess.com)
+│       ├── match-import.tsx        # UI de importação (Lichess / Chess.com / Chess-Results / CBX)
 │       ├── match-summary.tsx
+│       ├── match-charts.tsx
 │       └── match-table.tsx
 │
 ├── lib/
@@ -138,7 +139,11 @@ minhas-partidas-xadrez/
 │   │   └── client.ts                # Firebase App/Auth/Firestore init
 │   ├── import/
 │   │   ├── lichess.ts               # Busca + normalização de partidas do Lichess
-│   │   └── chesscom.ts              # Busca + normalização de partidas do Chess.com
+│   │   ├── chesscom.ts              # Busca + normalização de partidas do Chess.com
+│   │   ├── chessresults.ts          # Busca por URL de torneio (art=9) + fetch por tnr/snr
+│   │   ├── chessresults-search.ts   # Busca de torneios por data + resolução de snr por nome (art=1)
+│   │   ├── cbx.ts                   # Ficha de torneios na CBX + orquestração do cruzamento com o chess-results
+│   │   └── html-entities.ts         # Decodificador de entidades HTML compartilhado
 │   ├── hooks/
 │   │   ├── use-auth.ts
 │   │   ├── use-import.ts            # Hook que chama /api/import
@@ -170,14 +175,20 @@ minhas-partidas-xadrez/
 
 ---
 
-## Importação de partidas (Lichess / Chess.com)
+## Importação de partidas (Lichess / Chess.com / Chess-Results / CBX)
 
-No painel `/admin`, a seção **Importar partidas** busca seus jogos direto das APIs públicas dos provedores (sem necessidade de token):
+No painel `/admin`, a seção **Importar partidas** busca seus jogos direto das fontes públicas (sem necessidade de token):
 
 - A rota `app/api/import/route.ts` roda no servidor (serverless no Vercel), consulta o provedor e devolve as partidas já normalizadas para o modelo `Match`. Rodar no servidor evita CORS e permite enviar o `User-Agent` que o Chess.com exige.
 - O cliente compara com o que já existe (`source` + `source_id`), mostra uma prévia com a contagem de **novas** vs **já importadas** e só grava no Firestore quando você confirma (em lotes, via `writeBatch`).
 - **Lichess / Chess.com** (por nome de usuário): filtros de máximo de partidas, data mínima (`desde`) e somente ranqueadas; importa o PGN completo. Apenas o xadrez padrão é importado (variantes como Chess960 são ignoradas).
 - **Chess-Results** (pela URL da ficha do jogador, `art=9`): esse site não tem API, então a rota faz *scraping* da tabela de resultados por rodada (adversário, cor, resultado) e cria partidas do tipo **Torneio**. Só há acesso a `chess-results.com` (proteção contra SSRF). Como o site publica só os resultados, **não há PGN**; a data usada é a do torneio (última atualização) e pode ser ajustada manualmente. A rodada e o rating do adversário ficam nas notas.
+- **CBX** (pelo ID CBX do jogador — `lib/import/cbx.ts`): busca a ficha do jogador em `cbx.org.br/jogador/{id}` (lista de torneios disputados) e cruza automaticamente cada um com o chess-results, sem precisar colar URL nenhuma:
+  1. Busca torneios no chess-results pela mesma janela de datas do torneio na CBX (`TurnierSuche.aspx` — um formulário ASP.NET WebForms clássico; a rota faz o *postback* completo, incluindo manter a sessão/cookie do mesmo nó do site que serviu o formulário, senão o POST é ignorado).
+  2. Rankeia os candidatos por semelhança de título com o nome do torneio na CBX.
+  3. Confirma o candidato certo checando em qual deles o nome do jogador aparece de fato na lista final de classificação (`art=1`, coluna "No.Ini." = número do jogador no torneio) — só importa quando encontra essa confirmação; nunca "adivinha" entre candidatos parecidos.
+  4. Com o torneio e o número do jogador confirmados, reaproveita a mesma lógica de importação por torneio (`art=9`) já usada no modo Chess-Results direto.
+  - **Limitação conhecida**: a data que a CBX mostra para um torneio nem sempre bate com a data que o chess-results indexa para o mesmo evento (a do chess-results tende a refletir quando o resultado foi carregado, não quando foi jogado — já vimos casos com meses de diferença). Quando isso acontece, a busca por data não encontra o torneio certo e ele aparece na lista de "não encontrados automaticamente" — mesmo existindo no chess-results. Nesses casos, a importação por URL direta (que não depende de data) continua sendo o caminho confiável.
 
 ---
 
@@ -198,7 +209,7 @@ Depois do primeiro deploy, adicione o domínio de produção (ex: `seu-projeto.v
 
 | Limitação | Observação |
 |---|---|
-| Importação não guarda os lances (PGN) | Importa só os metadados (resultado, cor, abertura, controle de tempo); os movimentos da partida não são salvos |
-| Sem gráficos de evolução | O resumo mostra totais e taxa de aproveitamento, sem histórico visual ao longo do tempo |
+| Importação do Chess-Results e da CBX não guarda os lances (PGN) | Esses sites publicam só os resultados por rodada; os movimentos da partida não ficam disponíveis para importar (Lichess e Chess.com trazem o PGN completo normalmente) |
+| Importação por CBX depende de a data bater entre os dois sites | Ver a limitação conhecida detalhada na seção "Importação de partidas" acima |
 | Importação manual (sob demanda) | Não há sincronização automática/agendada — você dispara a importação quando quiser no painel |
 | Sem verificação de sessão no servidor | O guard de `/admin` é client-side; a proteção real dos dados é a regra do Firestore |
