@@ -1,14 +1,42 @@
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { useMatches } from '@/lib/hooks/use-matches';
 import { MatchSummary } from '@/components/matches/match-summary';
 import { MatchCharts } from '@/components/matches/match-charts';
 import { MatchTable } from '@/components/matches/match-table';
+import { ModeSwitch, modeOf, type Mode } from '@/components/matches/mode-switch';
 import { PageSpinner } from '@/components/ui/spinner';
 import { player } from '@/lib/config/player';
 
 export default function HomePage() {
   const { data: matches, isLoading } = useMatches();
+  const [mode, setMode] = useState<Mode | null>(null);
+
+  const counts = useMemo(() => {
+    const c: Record<Mode, number> = { tournament: 0, online: 0 };
+    for (const m of matches ?? []) c[modeOf(m)]++;
+    return c;
+  }, [matches]);
+
+  // Escolha lembrada; na primeira visita abre no modo que tem partidas.
+  useEffect(() => {
+    if (isLoading || mode) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem('home-mode');
+    } catch {}
+    setMode(saved === 'tournament' || saved === 'online' ? saved : counts.tournament >= counts.online ? 'tournament' : 'online');
+  }, [isLoading, mode, counts]);
+
+  function chooseMode(next: Mode) {
+    setMode(next);
+    try {
+      localStorage.setItem('home-mode', next);
+    } catch {}
+  }
+
+  const visible = useMemo(() => (matches ?? []).filter((m) => mode && modeOf(m) === mode), [matches, mode]);
 
   return (
     <div>
@@ -26,13 +54,14 @@ export default function HomePage() {
       </section>
 
       <div className="container-app py-10">
-        {isLoading ? (
+        {isLoading || !mode ? (
           <PageSpinner />
         ) : (
           <>
-            <MatchSummary matches={matches ?? []} />
-            <MatchCharts matches={matches ?? []} />
-            <MatchTable matches={matches ?? []} />
+            <ModeSwitch mode={mode} onChange={chooseMode} counts={counts} />
+            <MatchSummary matches={visible} />
+            <MatchCharts matches={visible} />
+            <MatchTable matches={visible} />
           </>
         )}
       </div>
