@@ -27,6 +27,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 - Filtros na lista de partidas: por tipo (Torneio / Lichess / Chess.com / Manual), por origem (de onde a partida foi importada), por período (data inicial/final) e busca por nome do adversário
 - Gráficos de estatísticas: resultados (parte-todo), desempenho por cor e evolução da taxa de aproveitamento ao longo dos meses, com tooltip ao passar o mouse e tabela alternativa
 - Tabuleiro navegável para revisar o PGN lance a lance
+- **Jogadores** (`/jogadores`): busca de qualquer jogador dos torneios completos importados, por nome ou ID CBX / FIDE; a ficha do jogador mostra estatísticas, confronto direto com cada adversário e as partidas por torneio
 - Modo escuro / claro
 
 ### Administrativas
@@ -34,6 +35,7 @@ Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`
 - Registro de novas partidas (formulário)
 - **Importação automática** do Lichess e do Chess.com (por nome de usuário), de um ou mais torneios do Chess-Results (por URL, com resolução automática do jogador pelo nome quando a URL não traz o `snr`), ou de **todos os torneios de um jogador pelo ID da CBX** (cruza automaticamente com o chess-results) — com prévia e sem duplicar o que já foi importado
 - Edição e remoção de partidas na lista
+- **Importação de torneio completo** do Chess-Results (por URL): todos os jogadores e todas as partidas de todas as rodadas, com o ID CBX de cada jogador como chave — ver [Torneios completos](#torneios-completos-chess-results)
 
 ---
 
@@ -84,7 +86,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### 6. Editar os dados exibidos no site
 
-Edite `lib/config/player.ts` com o seu nome e o título do site.
+Edite `lib/config/player.ts` com o seu nome e o título do site. Preencha `cbxId` para mostrar o atalho "Adversários de ..." na página `/jogadores`.
 
 ### 7. Rodar em desenvolvimento
 
@@ -111,7 +113,8 @@ minhas-partidas-xadrez/
 │   │   ├── layout.tsx              # Guard de autenticação (client-side)
 │   │   └── page.tsx                # Painel: importar + formulário + resumo + lista
 │   └── api/
-│       └── import/route.ts         # Rota serverless que busca partidas nos provedores
+│       ├── import/route.ts         # Rota serverless que busca partidas nos provedores
+│       └── tournament/route.ts     # Rota que busca um torneio inteiro no chess-results
 │
 ├── components/
 │   ├── layout/
@@ -172,6 +175,31 @@ minhas-partidas-xadrez/
 - Qualquer visitante pode ler as partidas (regra `allow read`).
 - Só os e-mails listados em `firestore.rules` conseguem criar, editar ou remover partidas — essa é a proteção real dos dados. O arquivo `lib/config/admins.ts` só controla a experiência visual (o que o app mostra), não substitui as regras do Firestore.
 - Não existe verificação de sessão no servidor (sem middleware): o guard de `/admin` roda no navegador e a segurança de fato vem do Firestore recusar a escrita para quem não está na lista.
+
+---
+
+## Torneios completos (Chess-Results)
+
+Além das partidas pessoais (`matches`), o painel importa um torneio **inteiro** — quem jogou contra quem, em que rodada, com que cor e quem venceu — para pesquisar antigos adversários de qualquer jogador.
+
+| Coleção Firestore | ID do documento | Descrição |
+|---|---|---|
+| `tournaments` | `tnr` | Nome, data, URL, rodadas, totais de jogadores/partidas |
+| `tournament_games` | `{tnr}-r{rodada}-{Nº brancas}-{Nº pretas}` | Uma partida: brancas, pretas (nome, chave, ID CBX, rating), resultado (`1-0`, `0-1`, `1/2-1/2`, `+-`/`-+` = W.O., `--` = W.O. duplo) e `player_keys` para consultar as partidas de um jogador com `array-contains` |
+| `players` | chave do jogador | Um documento por pessoa, agregando torneios: nome, título, ID CBX, FIDE ID, rating, clube, `tournaments` e `search_tokens` (prefixos do nome + IDs, para a busca) |
+
+**Chave do jogador**: `cbx-{ID CBX}` quando o torneio publica a coluna "ID" na lista de jogadores (torneios com rating CBX publicam); senão `fide-{FIDE ID}`; senão `nome-{palavras do nome em ordem alfabética}`. Só a chave por ID CBX/FIDE liga com segurança o mesmo jogador entre torneios diferentes.
+
+**Como importa** (`lib/import/chessresults-tournament.ts`, rota `app/api/tournament/route.ts`): duas páginas por torneio —
+- `art=0` (ranking inicial): Nº inicial, nome, título, ID (CBX), ID FIDE, federação, rating, clube;
+- `art=5` (tabela cruzada pelo ranking inicial): por rodada, células como `57b1` (pretas contra o Nº 57, venceu), `12w½`, `8b+` / `8w-` (W.O.) e `-1` / `-0` (bye / não emparceirado — não viram partida). Cada partida aparece na linha dos dois jogadores e é deduplicada.
+
+A gravação é feita pelo cliente depois da prévia, em lotes (`writeBatch`). Os IDs são determinísticos, então importar de novo o mesmo torneio atualiza em vez de duplicar. Remover um torneio apaga as partidas dele e tira o `tnr` da lista de cada jogador (os documentos de jogador ficam).
+
+**Limitações**:
+- Torneios com mais de 2 semanas escondem a data de início no chess-results (só aparece depois de um *postback*); a prévia usa a data da última atualização e pede para conferir.
+- Torneios por equipes não são suportados.
+- Torneios sem a coluna "ID" (escolares, sem rating) identificam o jogador pelo nome: homônimos viram a mesma pessoa e a mesma pessoa com grafias diferentes vira duas.
 
 ---
 

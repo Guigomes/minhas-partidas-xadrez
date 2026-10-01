@@ -10,19 +10,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Roxo "real" — cor principal do tema xadrez (peças/realeza)
+        // Verde de tabuleiro (casas escuras do xadrez) — cor principal do tema
         brand: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
-          950: '#2e1065',
+          50: '#f4f8ee',
+          100: '#e6efd8',
+          200: '#cfe0b4',
+          300: '#b0cb87',
+          400: '#93b564',
+          500: '#7ba047',
+          600: '#648a38',
+          700: '#4f6e2e',
+          800: '#415a28',
+          900: '#374b24',
+          950: '#1c2a0f',
         },
         // Dourado "troféu/xeque-mate" — acento
         gold: '#eab308',
