@@ -16,7 +16,7 @@ import { formatDate } from '@/lib/utils/date';
 import type { ParsedTournament } from '@/types/tournament';
 
 type Fetched =
-  | { url: string; status: 'ok'; tournament: ParsedTournament; saved: boolean }
+  | { url: string; status: 'ok'; tournament: ParsedTournament; saved: boolean; myMatches?: number }
   | { url: string; status: 'error'; message: string };
 
 export function TournamentImport() {
@@ -62,8 +62,8 @@ export function TournamentImport() {
   async function onSave(index: number) {
     const it = items[index];
     if (it?.status !== 'ok') return;
-    await saveTournament.mutateAsync(it.tournament);
-    setItems((prev) => prev.map((x, i) => (i === index && x.status === 'ok' ? { ...x, saved: true } : x)));
+    const { myMatches } = await saveTournament.mutateAsync(it.tournament);
+    setItems((prev) => prev.map((x, i) => (i === index && x.status === 'ok' ? { ...x, saved: true, myMatches } : x)));
   }
 
   async function onDelete(tnr: string, name: string) {
@@ -173,7 +173,9 @@ export function TournamentImport() {
                   loading={saveTournament.isPending && saveTournament.variables?.tnr === it.tournament.tnr}
                   disabled={it.saved}
                 >
-                  {it.saved ? '✅ Salvo' : `Salvar ${it.tournament.game_count} partidas e ${it.tournament.player_count} jogadores`}
+                  {it.saved
+                    ? `✅ Salvo${it.myMatches ? ` · ${it.myMatches} partidas suas na lista principal` : ''}`
+                    : `Salvar ${it.tournament.game_count} partidas e ${it.tournament.player_count} jogadores`}
                 </Button>
               </div>
             )

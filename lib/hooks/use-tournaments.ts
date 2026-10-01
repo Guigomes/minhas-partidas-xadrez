@@ -15,6 +15,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
+import { player as me } from '@/lib/config/player';
+import { myMatchesFrom } from '@/lib/tournament/my-matches';
 import { queryTerms, searchTokens } from '@/lib/tournament/player-search';
 import type { ParsedTournament, PlayerProfile, Tournament, TournamentGame } from '@/types/tournament';
 
@@ -102,12 +104,43 @@ export function useSaveTournament() {
         );
       }
 
+      // Partidas do jogador configurado também vão pra lista principal
+      // (página inicial), sem duplicar as que já foram importadas.
+      let myMatches = 0;
+      if (me.cbxId) {
+        const mine = myMatchesFrom(t, me.cbxId);
+        if (mine.length) {
+          const existing = await getDocs(query(collection(db, 'matches'), where('source', '==', 'chessresults')));
+          const known = new Set(existing.docs.map((d) => d.data().source_id as string));
+          for (const g of mine.filter((g) => !known.has(g.source_id))) {
+            myMatches++;
+            ops.push((b) =>
+              b.set(doc(collection(db, 'matches')), {
+                date: g.date,
+                opponent: g.opponent,
+                result: g.result,
+                color: g.color,
+                type: 'tournament',
+                time_control: null,
+                opening: null,
+                notes: g.notes ?? null,
+                pgn: null,
+                source: g.source,
+                source_id: g.source_id,
+                created_at: serverTimestamp(),
+              })
+            );
+          }
+        }
+      }
+
       await commitInChunks(ops);
-      return { games: t.games.length, players: t.players.length };
+      return { games: t.games.length, players: t.players.length, myMatches };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tournaments'] });
       qc.invalidateQueries({ queryKey: ['players'] });
+      qc.invalidateQueries({ queryKey: ['matches'] });
     },
   });
 }

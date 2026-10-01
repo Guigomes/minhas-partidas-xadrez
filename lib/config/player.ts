@@ -5,7 +5,8 @@ export const player = {
   // chess-results quando a URL importada não traz o snr dele.
   fullName: 'Miguel Oliveira Silva',
   // ID CBX — liga o botão "Adversários de ..." na página /jogadores aos
-  // torneios completos importados. Vazio = botão escondido.
-  cbxId: '',
+  // torneios completos importados e, ao importar um torneio completo, cria
+  // as partidas dele na lista principal. Vazio = nada disso acontece.
+  cbxId: '107485',
   title: 'Minhas Partidas de Xadrez',
 };
