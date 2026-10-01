@@ -14,14 +14,14 @@ const NAMED_ENTITIES: Record<string, string> = {
   Agrave: 'À', agrave: 'à', Egrave: 'È', egrave: 'è',
   Auml: 'Ä', auml: 'ä', Euml: 'Ë', euml: 'ë', Iuml: 'Ï', iuml: 'ï',
   Ouml: 'Ö', ouml: 'ö', Uuml: 'Ü', uuml: 'ü',
-  szlig: 'ß', ordf: 'ª', ordm: 'º', deg: '°', middot: '·',
+  szlig: 'ß', ordf: 'ª', ordm: 'º', deg: '°', middot: '·', frac12: '½',
 };
 
 export function decodeHtmlEntities(input: string): string {
   return input
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
-    .replace(/&([a-zA-Z]+);/g, (match, name) => NAMED_ENTITIES[name] ?? match);
+    .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (match, name) => NAMED_ENTITIES[name] ?? match);
 }
 
 export function stripHtmlTags(input: string): string {

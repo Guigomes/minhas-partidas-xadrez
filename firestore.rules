@@ -28,5 +28,22 @@ service cloud.firestore {
       // Só o administrador pode editar ou remover partidas.
       allow update, delete: if isAdmin();
     }
+
+    // Torneios completos importados do chess-results (todos os jogadores e
+    // partidas) — base da busca pública de jogadores/adversários.
+    match /tournaments/{tnr} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tournament_games/{gameId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /players/{playerKey} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }
