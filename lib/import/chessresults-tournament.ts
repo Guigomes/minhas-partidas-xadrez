@@ -76,9 +76,16 @@ function col(header: string[], ...names: string[]): number {
   return -1;
 }
 
+// Festivais e campeonatos por categoria têm um torneio (tnr) por categoria, todos
+// com o mesmo nome; a categoria vem num subtítulo (h3) logo antes do nome.
+// Sem ela, as categorias ficam indistinguíveis na lista.
 function tournamentName(html: string): string {
   const h2 = html.match(/<h2>([\s\S]*?)<\/h2>/);
-  return h2 ? stripHtmlTags(h2[1]).slice(0, 200) : 'Torneio';
+  const name = h2 ? stripHtmlTags(h2[1]) : 'Torneio';
+  const sub = html.match(/<h3 class="CRmsg">([^<]*)(?:<br\/?>[^<]*)?<\/h3>\s*<h2>/i);
+  const category = sub ? stripHtmlTags(sub[1]).trim() : '';
+  const full = category && !name.toLowerCase().includes(category.toLowerCase()) ? `${name} — ${category}` : name;
+  return full.slice(0, 200);
 }
 
 // `exact: false` = a data é só uma estimativa (a da última atualização) e a
