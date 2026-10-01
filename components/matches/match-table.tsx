@@ -574,7 +574,19 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               </Badge>
               {m.source === 'chessresults' && (
                 <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
-                  via Chess-Results
+                  {/* source_id = `${tnr}-${snr}-r${rodada}` */}
+                  {m.source_id?.match(/^(\d+)-/) ? (
+                    <a
+                      href={`https://chess-results.com/tnr${m.source_id.match(/^(\d+)-/)![1]}.aspx?lan=10`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:underline"
+                    >
+                      via Chess-Results ↗
+                    </a>
+                  ) : (
+                    'via Chess-Results'
+                  )}
                 </Badge>
               )}
             </div>
