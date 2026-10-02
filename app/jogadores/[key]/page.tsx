@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { usePlayer, usePlayerGames } from '@/lib/hooks/use-tournaments';
+import { usePlayer, usePlayerGames, useTournaments } from '@/lib/hooks/use-tournaments';
 import { OUTCOME_CLASS, OUTCOME_LABEL, outcomeFor, wasPlayed } from '@/lib/tournament/results';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
@@ -26,6 +26,8 @@ export default function PlayerPage() {
   const key = decodeURIComponent(params.key);
   const { data: profile, isLoading: loadingProfile } = usePlayer(key);
   const { data: games, isLoading: loadingGames } = usePlayerGames(key);
+  const { data: tournaments } = useTournaments();
+  const homologatedByTnr = useMemo(() => new Map((tournaments ?? []).map((t) => [t.tnr, t.homologated ?? null])), [tournaments]);
 
   const stats = useMemo(() => {
     let wins = 0;
@@ -212,7 +214,11 @@ export default function PlayerPage() {
               >
                 {t.name} ↗
               </a>
-              <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(t.date)}</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400">
+                {formatDate(t.date)}
+                {homologatedByTnr.get(tnr) === true && ' · ✅ homologado'}
+                {homologatedByTnr.get(tnr) === false && ' · não homologado'}
+              </span>
             </div>
             <ul className="divide-y divide-gray-100 dark:divide-gray-800/60">
               {[...t.games]

@@ -19,6 +19,8 @@ export type Match = {
   pgn: string | null;
   source: MatchSource;
   source_id: string | null;
+  // Torneio homologado (vale rating) ou não; null = não informado.
+  homologated: boolean | null;
   created_at: string;
 };
 
@@ -31,6 +33,7 @@ export type MatchFormValues = {
   time_control?: string;
   opening?: string;
   notes?: string;
+  homologated?: boolean | null;
 };
 
 // Partida normalizada vinda de um provedor externo (Lichess / Chess.com),
@@ -46,6 +49,7 @@ export type ImportedGame = {
   opening: string | null;
   pgn: string | null;
   notes?: string | null;
+  homologated?: boolean | null;
 };
 
 // 'cbx' não é uma origem de partida por si só (os jogos encontrados por

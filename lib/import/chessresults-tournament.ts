@@ -290,6 +290,7 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
     player_count: playerList.length,
     game_count: gameList.length,
     cbx_id_count: playerList.filter((p) => p.cbx_id).length,
+    homologated: true,
     players: playerList,
     games: gameList,
   };

@@ -59,6 +59,12 @@ export function TournamentImport() {
     );
   }
 
+  function updateHomologated(index: number, homologated: boolean) {
+    setItems((prev) =>
+      prev.map((it, i) => (i === index && it.status === 'ok' ? { ...it, tournament: { ...it.tournament, homologated } } : it))
+    );
+  }
+
   async function onSave(index: number) {
     const it = items[index];
     if (it?.status !== 'ok') return;
@@ -166,6 +172,16 @@ export function TournamentImport() {
                   }
                 />
 
+                <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <input
+                    type="checkbox"
+                    checked={it.tournament.homologated === true}
+                    onChange={(e) => updateHomologated(i, e.target.checked)}
+                    className="h-4 w-4 accent-brand-600"
+                  />
+                  Torneio homologado (vale rating)
+                </label>
+
                 <Button
                   type="button"
                   className="w-full"
@@ -210,7 +226,8 @@ export function TournamentImport() {
                     {t.name}
                   </a>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {formatDate(t.date)} · {t.player_count} jogadores · {t.game_count} partidas
+                    {formatDate(t.date)} · {t.player_count} jogadores · {t.game_count} partidas ·{' '}
+                    {t.homologated === true ? 'homologado' : t.homologated === false ? 'não homologado' : 'homologação não informada'}
                   </p>
                 </div>
                 <Button

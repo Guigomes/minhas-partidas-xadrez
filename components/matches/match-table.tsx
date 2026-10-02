@@ -178,6 +178,9 @@ function EditMatchModal({
   const [timeControl, setTimeControl] = useState(match.time_control ?? '');
   const [opening, setOpening] = useState(match.opening ?? '');
   const [notes, setNotes] = useState(match.notes ?? '');
+  const [homologated, setHomologated] = useState<'' | 'yes' | 'no'>(
+    match.homologated === true ? 'yes' : match.homologated === false ? 'no' : ''
+  );
 
   useEscapeKey(onCancel);
 
@@ -258,6 +261,14 @@ function EditMatchModal({
             </Select>
           </div>
 
+          {type === 'tournament' && (
+            <Select label="Homologação" value={homologated} onChange={(e) => setHomologated(e.target.value as '' | 'yes' | 'no')}>
+              <option value="">Não informado</option>
+              <option value="yes">Homologado</option>
+              <option value="no">Não homologado</option>
+            </Select>
+          )}
+
           <Input label="Abertura" value={opening} onChange={(e) => setOpening(e.target.value)} />
 
           <Textarea label="Notas" value={notes} onChange={(e) => setNotes(e.target.value)} />
@@ -268,7 +279,19 @@ function EditMatchModal({
             Cancelar
           </Button>
           <Button
-            onClick={() => onSave({ date, opponent, result, color, type, time_control: timeControl, opening, notes })}
+            onClick={() =>
+              onSave({
+                date,
+                opponent,
+                result,
+                color,
+                type,
+                time_control: timeControl,
+                opening,
+                notes,
+                homologated: type === 'tournament' && homologated ? homologated === 'yes' : null,
+              })
+            }
             loading={pending}
           >
             Salvar
@@ -572,6 +595,17 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
               <Badge className="bg-brand-50 text-brand-600 dark:bg-brand-950 dark:text-brand-400">
                 {TYPE_LABEL[m.type]}
               </Badge>
+              {m.type === 'tournament' && m.homologated !== null && (
+                <Badge
+                  className={
+                    m.homologated
+                      ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
+                      : 'bg-yellow-50 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300'
+                  }
+                >
+                  {m.homologated ? '✅ Homologado' : 'Não homologado'}
+                </Badge>
+              )}
               {m.source === 'chessresults' && (
                 <Badge className="bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                   {/* source_id = `${tnr}-${snr}-r${rodada}` */}

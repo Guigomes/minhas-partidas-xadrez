@@ -72,6 +72,7 @@ export function useSaveTournament() {
         player_count: t.player_count,
         game_count: t.game_count,
         cbx_id_count: t.cbx_id_count,
+        homologated: t.homologated ?? null,
       };
       ops.push((b) => b.set(doc(db, TOURNAMENTS, t.tnr), { ...meta, imported_at: serverTimestamp() }));
 
@@ -127,6 +128,7 @@ export function useSaveTournament() {
                 pgn: null,
                 source: g.source,
                 source_id: g.source_id,
+                homologated: g.homologated ?? null,
                 created_at: serverTimestamp(),
               })
             );

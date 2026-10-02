@@ -51,6 +51,7 @@ export function useCreateMatch() {
         pgn: null,
         source: 'manual',
         source_id: null,
+        homologated: values.homologated ?? null,
         created_at: serverTimestamp(),
       });
     },
@@ -83,6 +84,7 @@ export function useMatches() {
           pgn: data.pgn ?? null,
           source: data.source ?? 'manual',
           source_id: data.source_id ?? null,
+          homologated: data.homologated ?? null,
           created_at: createdAt.toISOString(),
         };
       });
@@ -105,6 +107,7 @@ export function useUpdateMatch() {
         time_control: values.time_control || null,
         opening: values.opening || null,
         notes: values.notes || null,
+        homologated: values.homologated ?? null,
       });
     },
     onSuccess: () => {
@@ -146,6 +149,7 @@ export function useBulkCreateMatches() {
             pgn: g.pgn ?? null,
             source: g.source,
             source_id: g.source_id,
+            homologated: g.homologated ?? null,
             created_at: serverTimestamp(),
           });
         }

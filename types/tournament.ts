@@ -54,6 +54,9 @@ export type Tournament = {
   // Quantos jogadores vieram com ID CBX — torneios escolares e outros sem
   // rating nacional costumam não publicar a coluna "ID".
   cbx_id_count: number;
+  // Homologado (vale rating) ou não; null = não informado. O chess-results
+  // não diz isso, então é preenchido na importação.
+  homologated: boolean | null;
 };
 
 // Resposta da rota /api/tournament, antes de gravar no Firestore.

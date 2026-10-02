@@ -32,6 +32,7 @@ export function myMatchesFrom(t: ParsedTournament, cbxId: string): ImportedGame[
       opening: null,
       pgn: null,
       notes: notes.join(' · '),
+      homologated: t.homologated,
     });
   }
   return games;
