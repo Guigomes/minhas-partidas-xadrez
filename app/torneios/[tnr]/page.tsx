@@ -60,6 +60,7 @@ export default function TournamentPage() {
   const { data: players, isLoading: loadingPlayers, isError: playersError } = useTournamentPlayers(tnr);
   const [tab, setTab] = useState<Tab>('campaign');
   const [round, setRound] = useState<number | 'all'>('all');
+  const [onlyPgn, setOnlyPgn] = useState(false);
 
   const rows = useMemo(() => {
     const map = new Map<string, Row>();
@@ -91,7 +92,11 @@ export default function TournamentPage() {
   }, [players, games]);
 
   const rounds = useMemo(() => [...new Set((games ?? []).map((g) => g.round))].sort((a, b) => a - b), [games]);
-  const shown = useMemo(() => (games ?? []).filter((g) => round === 'all' || g.round === round), [games, round]);
+  const pgnCount = useMemo(() => (games ?? []).filter((g) => g.pgn).length, [games]);
+  const shown = useMemo(
+    () => (games ?? []).filter((g) => (round === 'all' || g.round === round) && (!onlyPgn || g.pgn)),
+    [games, round, onlyPgn]
+  );
   const played = useMemo(() => (games ?? []).filter(wasPlayed).length, [games]);
   const me = (players ?? []).find((p) => p.cbx_id === player.cbxId)
     ?? (players ?? []).find((p) => nameKey(p.name) === nameKey(player.fullName));
@@ -193,7 +198,7 @@ export default function TournamentPage() {
               const white = g.white.key === myKey;
               const opponent = white ? g.black : g.white;
               const result = outcomeFor(g, myKey);
-              return <li key={g.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-4 text-sm"><span className="text-gray-500">R{g.round}</span><div><Link className="font-medium hover:underline" href={`/jogadores/${opponent.key}`}>{opponent.name}</Link><p className="text-xs text-gray-500 dark:text-gray-400">{white ? 'Brancas' : 'Pretas'}{opponent.rating ? ` · Rating informado: ${opponent.rating}` : ''}</p></div><span className={cn('font-semibold', OUTCOME_CLASS[result])}>{OUTCOME_LABEL[result]}</span></li>;
+              return <li key={g.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-4 text-sm"><span className="text-gray-500">R{g.round}</span><div><Link className="font-medium hover:underline" href={`/jogadores/${opponent.key}`}>{opponent.name}</Link><p className="text-xs text-gray-500 dark:text-gray-400">{white ? 'Brancas' : 'Pretas'}{opponent.rating ? ` · Rating informado: ${opponent.rating}` : ''}</p></div><div className="flex items-center gap-3">{g.pgn && <GameViewerButton game={g} orientation={white ? 'white' : 'black'} />}<span className={cn('font-semibold', OUTCOME_CLASS[result])}>{OUTCOME_LABEL[result]}</span></div></li>;
             })}</ol>
           </> : <p className="mt-4 text-gray-500">Não há partidas do Miguel identificadas neste torneio. Explore os jogadores e as demais partidas nas abas acima.</p>}
         </section>
@@ -233,6 +238,17 @@ export default function TournamentPage() {
         </div>
       ) : (
         <div className="space-y-4">
+          {pgnCount > 0 && (
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <input
+                type="checkbox"
+                checked={onlyPgn}
+                onChange={(e) => setOnlyPgn(e.target.checked)}
+                className="h-5 w-5 accent-brand-600"
+              />
+              Só partidas com lances ({pgnCount})
+            </label>
+          )}
           <div className="flex flex-wrap gap-2">
             {(['all', ...rounds] as const).map((r) => (
               <button

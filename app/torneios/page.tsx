@@ -20,6 +20,7 @@ export default function TournamentsPage() {
   const mine = useMemo(() => new Map(campaigns(matches ?? []).filter((c) => c.tnr).map((c) => [c.tnr, c])), [matches]);
   const [search, setSearch] = useState('');
   const [timeControl, setTimeControl] = useState('');
+  const [onlyPgn, setOnlyPgn] = useState(false);
 
   // Vindo da página inicial (?q=nome do evento): já filtra e mostra todos os torneios.
   useEffect(() => {
@@ -35,10 +36,11 @@ export default function TournamentsPage() {
     return (tournaments ?? []).filter((t) => {
       if (mineOnly && !mine.has(t.tnr)) return false;
       if (timeControl && (t.time_control ?? 'none') !== timeControl) return false;
+      if (onlyPgn && !(t.pgn_count && t.pgn_count > 0)) return false;
       const name = normalizeText(t.name);
       return words.every((w) => name.includes(w));
     });
-  }, [tournaments, search, timeControl, mineOnly, mine]);
+  }, [tournaments, search, timeControl, onlyPgn, mineOnly, mine]);
 
   if (isLoading || loadingMatches) return <PageSpinner />;
 
@@ -56,6 +58,16 @@ export default function TournamentsPage() {
         <button aria-pressed={!mineOnly} onClick={() => setMineOnly(false)} className={`rounded-full px-4 py-3 text-sm font-semibold ${!mineOnly ? 'bg-brand-700 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>Todos os torneios</button>
       </div>
       {matchesError && mineOnly && <p role="alert">Não foi possível identificar as participações do Miguel. Atualize a página ou explore todos os torneios.</p>}
+
+      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+        <input
+          type="checkbox"
+          checked={onlyPgn}
+          onChange={(e) => setOnlyPgn(e.target.checked)}
+          className="h-5 w-5 accent-brand-600"
+        />
+        Só torneios com lances (PGN)
+      </label>
 
       <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
         <Input
@@ -97,6 +109,11 @@ export default function TournamentsPage() {
                   </Badge>
                   {t.time_control && (
                     <Badge className="bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold">{t.time_control}</Badge>
+                  )}
+                  {!!t.pgn_count && (
+                    <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                      ♟ {t.pgn_count} com lances
+                    </Badge>
                   )}
                   {t.homologated === true && (
                     <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">

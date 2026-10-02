@@ -14,7 +14,7 @@ import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
 import { numberLabel } from '@/lib/tournament/campaigns';
 
-type Detail = 'tournaments' | 'win' | 'draw' | 'loss';
+type Detail = 'tournaments' | 'win' | 'draw' | 'loss' | 'pgn';
 
 const DETAIL_PAGE = 30;
 
@@ -147,15 +147,18 @@ export default function PlayerPage() {
 
   // Partidas jogadas de um resultado (vitória, empate ou derrota), da mais recente para a mais antiga.
   const detailGames = useMemo(() => {
-    if (detail !== 'win' && detail !== 'draw' && detail !== 'loss') return [];
+    if (detail !== 'win' && detail !== 'draw' && detail !== 'loss' && detail !== 'pgn') return [];
     return (games ?? [])
       .filter((g) => {
+        if (detail === 'pgn') return !!g.pgn;
         if (!wasPlayed(g)) return false;
         const o = outcomeFor(g, key);
         return detail === 'win' ? o === 'win' : detail === 'draw' ? o === 'draw' : o === 'loss';
       })
       .sort((a, b) => b.date.localeCompare(a.date) || b.tnr.localeCompare(a.tnr) || a.round - b.round);
   }, [games, key, detail]);
+
+  const pgnCount = (games ?? []).filter((g) => g.pgn).length;
 
   if (loadingProfile || loadingGames) return <PageSpinner />;
 
@@ -216,12 +219,15 @@ export default function PlayerPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className={cn('grid grid-cols-2 sm:grid-cols-3 gap-3', pgnCount > 0 ? 'lg:grid-cols-7' : 'lg:grid-cols-6')}>
         <Stat label="Torneios" value={byTournament.length} active={detail === 'tournaments'} onClick={() => toggleDetail('tournaments')} />
         <Stat label="Partidas" value={stats.played} href="#partidas" />
         <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" active={detail === 'win'} onClick={() => toggleDetail('win')} />
         <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" active={detail === 'draw'} onClick={() => toggleDetail('draw')} />
         <Stat label="Derrotas" value={stats.losses} className="text-red-600 dark:text-red-400" active={detail === 'loss'} onClick={() => toggleDetail('loss')} />
+        {pgnCount > 0 && (
+          <Stat label="Com lances" value={pgnCount} active={detail === 'pgn'} onClick={() => toggleDetail('pgn')} />
+        )}
         <Stat label="Aproveitamento" value={stats.played ? `${numberLabel(stats.pct)}%` : '—'} />
       </div>
       {stats.forfeits > 0 && (
@@ -236,7 +242,7 @@ export default function PlayerPage() {
             <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">
               {detail === 'tournaments'
                 ? `Torneios (${byTournament.length})`
-                : `${detail === 'win' ? 'Vitórias' : detail === 'draw' ? 'Empates' : 'Derrotas'} (${detailGames.length})`}
+                : `${detail === 'win' ? 'Vitórias' : detail === 'draw' ? 'Empates' : detail === 'loss' ? 'Derrotas' : 'Partidas com lances'} (${detailGames.length})`}
             </h2>
             <button
               type="button"
@@ -295,9 +301,16 @@ export default function PlayerPage() {
                   const tc = timeControlByTnr.get(g.tnr);
                   return (
                     <li key={g.id} className="py-3">
-                      <Link href={`/jogadores/${opp.key}`} className="font-medium hover:underline break-words">
-                        {opp.name}
-                      </Link>
+                      <div className="flex items-start justify-between gap-3">
+                        <Link href={`/jogadores/${opp.key}`} className="font-medium hover:underline break-words">
+                          {opp.name}
+                        </Link>
+                        {detail === 'pgn' && (
+                          <span className={cn('shrink-0 text-xs font-semibold', OUTCOME_CLASS[outcomeFor(g, key)])}>
+                            {OUTCOME_LABEL[outcomeFor(g, key)]}
+                          </span>
+                        )}
+                      </div>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                         <Link href={`/torneios/${g.tnr}`} className="hover:underline">
                           {g.tournament_name}
