@@ -6,11 +6,24 @@ import { useParams } from 'next/navigation';
 import { usePlayer, usePlayerGames, useTournaments } from '@/lib/hooks/use-tournaments';
 import { OUTCOME_CLASS, OUTCOME_LABEL, outcomeFor, wasPlayed } from '@/lib/tournament/results';
 import { EmptyState } from '@/components/ui/empty-state';
+import { Select } from '@/components/ui/select';
 import { PageSpinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
 import { numberLabel } from '@/lib/tournament/campaigns';
+
+type OpponentSort = 'games' | 'recent' | 'oldest' | 'name' | 'wins' | 'losses' | 'percent';
+
+const OPPONENT_SORT_OPTIONS: { value: OpponentSort; label: string }[] = [
+  { value: 'games', label: 'Mais jogos' },
+  { value: 'recent', label: 'Mais recentes' },
+  { value: 'oldest', label: 'Mais antigos' },
+  { value: 'name', label: 'Nome (A-Z)' },
+  { value: 'wins', label: 'Mais vitórias' },
+  { value: 'losses', label: 'Mais derrotas' },
+  { value: 'percent', label: 'Melhor aproveitamento' },
+];
 
 type OpponentRecord = {
   key: string;
@@ -30,6 +43,7 @@ export default function PlayerPage() {
   const { data: games, isLoading: loadingGames } = usePlayerGames(key);
   const { data: tournaments } = useTournaments();
   const [openOpponents, setOpenOpponents] = useState<Set<string>>(new Set());
+  const [opponentSort, setOpponentSort] = useState<OpponentSort>('games');
 
   function toggleOpponent(opponentKey: string) {
     setOpenOpponents((prev) => {
@@ -92,6 +106,22 @@ export default function PlayerPage() {
       (a, b) => b.wins + b.draws + b.losses - (a.wins + a.draws + a.losses) || a.name.localeCompare(b.name, 'pt-BR')
     );
   }, [games, key]);
+
+  const sortedOpponents = useMemo(() => {
+    const total = (o: OpponentRecord) => o.wins + o.draws + o.losses;
+    const percent = (o: OpponentRecord) => (o.wins + o.draws / 2) / total(o);
+    const byName = (a: OpponentRecord, b: OpponentRecord) => a.name.localeCompare(b.name, 'pt-BR');
+    const compare: Record<OpponentSort, (a: OpponentRecord, b: OpponentRecord) => number> = {
+      games: (a, b) => total(b) - total(a) || byName(a, b),
+      recent: (a, b) => b.lastDate.localeCompare(a.lastDate) || byName(a, b),
+      oldest: (a, b) => a.lastDate.localeCompare(b.lastDate) || byName(a, b),
+      name: byName,
+      wins: (a, b) => b.wins - a.wins || total(b) - total(a) || byName(a, b),
+      losses: (a, b) => b.losses - a.losses || total(b) - total(a) || byName(a, b),
+      percent: (a, b) => percent(b) - percent(a) || total(b) - total(a) || byName(a, b),
+    };
+    return [...opponents].sort(compare[opponentSort]);
+  }, [opponents, opponentSort]);
 
   const byTournament = useMemo(() => {
     const map = new Map<string, { name: string; date: string; games: TournamentGame[] }>();
@@ -181,9 +211,20 @@ export default function PlayerPage() {
           <h2 className="font-display text-xl text-brand-700 dark:text-brand-400 mb-3">
             Adversários ({opponents.length})
           </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">V / E / D = vitórias, empates e derrotas</p>
+          <Select
+            label="Ordenar por"
+            value={opponentSort}
+            onChange={(e) => setOpponentSort(e.target.value as OpponentSort)}
+          >
+            {OPPONENT_SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 mb-2">V / E / D = vitórias, empates e derrotas</p>
           <ul className="divide-y divide-gray-100 dark:divide-gray-800/60">
-            {opponents.map((o) => {
+            {sortedOpponents.map((o) => {
               const open = openOpponents.has(o.key);
               const total = o.wins + o.draws + o.losses;
               return (
