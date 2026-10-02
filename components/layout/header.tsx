@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { player } from '@/lib/config/player';
 import { useUser } from '@/lib/hooks/use-auth';
+import { isAdminEmail } from '@/lib/config/admins';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export function Header() {
@@ -19,12 +20,14 @@ export function Header() {
         </Link>
 
         <div className="flex items-center gap-0 sm:gap-2">
-          <Link
-            href="/miguel"
-            className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
-          >
-            Miguel
-          </Link>
+          {isAdminEmail(user?.email) && (
+            <Link
+              href="/miguel"
+              className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+            >
+              Miguel
+            </Link>
+          )}
           <Link
             href="/torneios"
             className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
