@@ -249,3 +249,39 @@ export function usePlayerGames(key: string) {
     },
   });
 }
+
+export function useTournament(tnr: string) {
+  return useQuery({
+    queryKey: ['tournaments', tnr],
+    enabled: !!tnr,
+    queryFn: async (): Promise<Tournament | null> => {
+      const snap = await getDoc(doc(db, TOURNAMENTS, tnr));
+      return snap.exists() ? (snap.data() as Tournament) : null;
+    },
+  });
+}
+
+export function useTournamentGames(tnr: string) {
+  return useQuery({
+    queryKey: ['tournaments', tnr, 'games'],
+    enabled: !!tnr,
+    queryFn: async (): Promise<TournamentGame[]> => {
+      const snapshot = await getDocs(query(collection(db, GAMES), where('tnr', '==', tnr)));
+      return snapshot.docs
+        .map((d) => d.data() as TournamentGame)
+        .sort((a, b) => a.round - b.round || a.white.snr - b.white.snr);
+    },
+  });
+}
+
+// Todos os inscritos do torneio, inclusive quem ainda não tem partida.
+export function useTournamentPlayers(tnr: string) {
+  return useQuery({
+    queryKey: ['tournaments', tnr, 'players'],
+    enabled: !!tnr,
+    queryFn: async (): Promise<PlayerProfile[]> => {
+      const snapshot = await getDocs(query(collection(db, PLAYERS), where('tournaments', 'array-contains', tnr)));
+      return snapshot.docs.map((d) => toProfile(d.data()));
+    },
+  });
+}
