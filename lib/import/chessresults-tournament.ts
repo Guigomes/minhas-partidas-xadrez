@@ -284,6 +284,31 @@ export function parseTimeControl(detailsHtml: string, name: string): TimeControl
   return null;
 }
 
+// Jogadores sem ID na lista inicial (torneios escolares e festivais não publicam
+// a coluna): a ficha do jogador (art=9) traz o "Ident-Number", que nos torneios
+// brasileiros é o ID da CBX. Uma requisição por jogador, então tem teto.
+const MAX_IDENT_LOOKUPS = 150;
+
+async function fetchIdentNumbers(tnr: string, snrs: number[]): Promise<Map<number, string>> {
+  const found = new Map<number, string>();
+  for (let i = 0; i < Math.min(snrs.length, MAX_IDENT_LOOKUPS); i += 8) {
+    await Promise.all(
+      snrs.slice(i, i + 8).map(async (snr) => {
+        try {
+          const res = await fetch(`https://s2.chess-results.com/tnr${tnr}.aspx?lan=1&art=9&snr=${snr}&SNode=S0`, {
+            headers: { 'User-Agent': 'minhas-partidas-xadrez' },
+          });
+          const id = stripHtmlTags(await res.text()).match(/Ident-Number\s*(\d+)/)?.[1];
+          if (id && id !== '0') found.set(snr, id);
+        } catch {
+          // sem a ficha, o jogador segue identificado pelo nome
+        }
+      })
+    );
+  }
+  return found;
+}
+
 export function tnrFromUrl(url: string): string {
   let parsed: URL;
   try {
@@ -308,11 +333,21 @@ export async function fetchFullTournament(url: string): Promise<ParsedTournament
     fetchPage(tnr, 2, '&rd=1').catch(() => ''),
     fetchDetailsHtml(tnr).catch(() => ''),
   ]);
-  return buildTournament(tnr, listHtml, crossHtml, pairHtml, detailsHtml);
+  let idents = new Map<number, string>();
+  try {
+    const missing = [...parsePlayerList(listHtml).values()].filter((p) => !p.cbx_id).map((p) => p.snr);
+    if (missing.length) idents = await fetchIdentNumbers(tnr, missing);
+  } catch {
+    // lista inválida: buildTournament devolve o erro certo
+  }
+  return buildTournament(tnr, listHtml, crossHtml, pairHtml, detailsHtml, idents);
 }
 
 // Separado do fetch pra dar pra testar com HTML salvo.
-export function buildTournament(tnr: string, listHtml: string, crossHtml: string, pairHtml = '', detailsHtml = ''): ParsedTournament {
+export function buildTournament(tnr: string, listHtml: string, crossHtml: string, pairHtml = '',
+  detailsHtml = '',
+  idents = new Map<number, string>()
+): ParsedTournament {
   const listed = parsePlayerList(listHtml);
   const cross = parseCrosstable(crossHtml);
   const name = tournamentName(listHtml);
@@ -328,7 +363,7 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
   const snrs = new Set<number>([...listed.keys(), ...cross.names.keys()]);
   const players = new Map<number, TournamentPlayer>();
   for (const snr of snrs) {
-    const player: ListedPlayer = listed.get(snr) ?? {
+    const base: ListedPlayer = listed.get(snr) ?? {
       snr,
       name: cross.names.get(snr) ?? `Jogador ${snr}`,
       title: null,
@@ -338,6 +373,7 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
       rating: null,
       club: null,
     };
+    const player = { ...base, cbx_id: base.cbx_id ?? idents.get(snr) ?? null };
     players.set(snr, { ...player, key: playerKey(player) });
   }
 
