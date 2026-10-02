@@ -109,7 +109,7 @@ export function useSaveTournament() {
       // (página inicial), sem duplicar as que já foram importadas.
       let myMatches = 0;
       if (me.cbxId) {
-        const mine = myMatchesFrom(t, me.cbxId);
+        const mine = myMatchesFrom(t, me.cbxId, me.fullName);
         if (mine.length) {
           const existing = await getDocs(query(collection(db, 'matches'), where('source', '==', 'chessresults')));
           const known = new Set(existing.docs.map((d) => d.data().source_id as string));

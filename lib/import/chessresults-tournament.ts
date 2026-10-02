@@ -83,7 +83,9 @@ function tournamentName(html: string): string {
   const h2 = html.match(/<h2>([\s\S]*?)<\/h2>/);
   const name = h2 ? stripHtmlTags(h2[1]) : 'Torneio';
   const sub = html.match(/<h3 class="CRmsg">([^<]*)(?:<br\/?>[^<]*)?<\/h3>\s*<h2>/i);
-  const category = sub ? stripHtmlTags(sub[1]).trim() : '';
+  let category = sub ? stripHtmlTags(sub[1]).trim() : '';
+  // Alguns torneios usam esse subtítulo pra link/regulamento, não pra categoria.
+  if (/https?:|regulamento|informa[cç]/i.test(category)) category = '';
   const full = category && !name.toLowerCase().includes(category.toLowerCase()) ? `${name} — ${category}` : name;
   return full.slice(0, 200);
 }

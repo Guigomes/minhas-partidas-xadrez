@@ -1,13 +1,21 @@
 import type { ImportedGame } from '@/types/match';
 import type { ParsedTournament } from '@/types/tournament';
 import { outcomeFor, wasPlayed } from './results';
+import { nameKey } from './player-search';
 
 // Partidas do jogador configurado dentro de um torneio completo, no formato
 // da lista principal (`matches`). O source_id segue o mesmo padrão do import
 // por URL (chessresults.ts), então os dois caminhos não duplicam partidas.
 // W.O. fica de fora: não é partida jogada.
-export function myMatchesFrom(t: ParsedTournament, cbxId: string): ImportedGame[] {
-  const me = t.players.find((p) => p.cbx_id === cbxId);
+//
+// Torneios sem a coluna de ID (escolares, festivais) não trazem o ID CBX: aí o
+// jogador é achado pelo nome completo, só se nenhum inscrito tiver o ID.
+export function myMatchesFrom(t: ParsedTournament, cbxId: string, fullName?: string): ImportedGame[] {
+  const me =
+    t.players.find((p) => p.cbx_id === cbxId) ??
+    (fullName && !t.players.some((p) => p.cbx_id)
+      ? t.players.find((p) => nameKey(p.name) === nameKey(fullName))
+      : undefined);
   if (!me) return [];
 
   const games: ImportedGame[] = [];
