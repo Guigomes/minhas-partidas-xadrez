@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { usePlayer, usePlayerGames, useTournaments } from '@/lib/hooks/use-tournaments';
@@ -20,6 +20,7 @@ type OpponentRecord = {
   draws: number;
   losses: number;
   lastDate: string;
+  games: TournamentGame[];
 };
 
 export default function PlayerPage() {
@@ -28,6 +29,15 @@ export default function PlayerPage() {
   const { data: profile, isLoading: loadingProfile } = usePlayer(key);
   const { data: games, isLoading: loadingGames } = usePlayerGames(key);
   const { data: tournaments } = useTournaments();
+  const [openOpponents, setOpenOpponents] = useState<Set<string>>(new Set());
+
+  function toggleOpponent(opponentKey: string) {
+    setOpenOpponents((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(opponentKey)) next.add(opponentKey);
+      return next;
+    });
+  }
   const timeControlByTnr = useMemo(() => new Map((tournaments ?? []).map((t) => [t.tnr, t.time_control ?? null])), [tournaments]);
   const homologatedByTnr = useMemo(() => new Map((tournaments ?? []).map((t) => [t.tnr, t.homologated ?? null])), [tournaments]);
 
@@ -65,13 +75,18 @@ export default function PlayerPage() {
         draws: 0,
         losses: 0,
         lastDate: g.date,
+        games: [],
       };
+      rec.games.push(g);
       const o = outcomeFor(g, key);
       if (o === 'win') rec.wins++;
       else if (o === 'draw') rec.draws++;
       else rec.losses++;
       if (g.date > rec.lastDate) rec.lastDate = g.date;
       map.set(opp.key, rec);
+    }
+    for (const rec of map.values()) {
+      rec.games.sort((a, b) => b.date.localeCompare(a.date) || a.round - b.round);
     }
     return [...map.values()].sort(
       (a, b) => b.wins + b.draws + b.losses - (a.wins + a.draws + a.losses) || a.name.localeCompare(b.name, 'pt-BR')
@@ -178,15 +193,28 @@ export default function PlayerPage() {
                 </tr>
               </thead>
               <tbody>
-                {opponents.map((o) => (
-                  <tr key={o.key} className="border-b border-gray-100 dark:border-gray-800/60">
+                {opponents.map((o) => {
+                  const open = openOpponents.has(o.key);
+                  return (
+                  <Fragment key={o.key}>
+                  <tr className="border-b border-gray-100 dark:border-gray-800/60">
                     <td className="py-2 pr-3">
                       <Link href={`/jogadores/${o.key}`} className="text-gray-900 dark:text-gray-100 hover:underline">
                         {o.name}
                       </Link>
                       {o.cbx_id && <span className="text-xs text-gray-400 ml-2">CBX {o.cbx_id}</span>}
                     </td>
-                    <td className="py-2 px-2 text-center">{o.wins + o.draws + o.losses}</td>
+                    <td className="py-2 px-2 text-center whitespace-nowrap">
+                      {o.wins + o.draws + o.losses}
+                      <button
+                        type="button"
+                        onClick={() => toggleOpponent(o.key)}
+                        aria-expanded={open}
+                        className="ml-2 text-xs font-medium text-brand-700 dark:text-brand-300 underline underline-offset-2"
+                      >
+                        {open ? 'ocultar' : 'ver jogos'}
+                      </button>
+                    </td>
                     <td className="py-2 px-2 text-center whitespace-nowrap">
                       <span className="text-brand-600 dark:text-brand-400">{o.wins}</span> /{' '}
                       <span className="text-gray-600 dark:text-gray-300">{o.draws}</span> /{' '}
@@ -196,7 +224,38 @@ export default function PlayerPage() {
                       {formatDate(o.lastDate)}
                     </td>
                   </tr>
-                ))}
+                  {open && (
+                    <tr className="border-b border-gray-100 dark:border-gray-800/60 bg-gray-50 dark:bg-gray-900/40">
+                      <td colSpan={4} className="px-3 py-3">
+                        <ul className="space-y-2">
+                          {o.games.map((g) => {
+                            const outcome = outcomeFor(g, key);
+                            const isWhite = g.white.key === key;
+                            const tc = timeControlByTnr.get(g.tnr);
+                            return (
+                              <li key={g.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <span className="min-w-0">
+                                  <Link href={`/torneios/${g.tnr}`} className="font-medium hover:underline break-words">
+                                    {g.tournament_name}
+                                  </Link>
+                                  <span className="block text-xs text-gray-500 dark:text-gray-400">
+                                    {formatDate(g.date)} · Rodada {g.round} · {isWhite ? '♔ Brancas' : '♚ Pretas'}
+                                    {tc && ` · ${tc}`}
+                                  </span>
+                                </span>
+                                <span className={cn('shrink-0 text-xs font-semibold', OUTCOME_CLASS[outcome])}>
+                                  {OUTCOME_LABEL[outcome]}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  );
+                })}
               </tbody>
             </table>
           </div>
