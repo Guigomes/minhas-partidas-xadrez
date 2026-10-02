@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useTournaments } from '@/lib/hooks/use-tournaments';
 import { useMatches } from '@/lib/hooks/use-matches';
@@ -20,6 +20,15 @@ export default function TournamentsPage() {
   const mine = useMemo(() => new Map(campaigns(matches ?? []).filter((c) => c.tnr).map((c) => [c.tnr, c])), [matches]);
   const [search, setSearch] = useState('');
   const [timeControl, setTimeControl] = useState('');
+
+  // Vindo da página inicial (?q=nome do evento): já filtra e mostra todos os torneios.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) {
+      setSearch(q);
+      setMineOnly(false);
+    }
+  }, []);
 
   const filtered = useMemo(() => {
     const words = normalizeText(search).split(/\s+/).filter(Boolean);

@@ -20,6 +20,12 @@ export function Header() {
 
         <div className="flex items-center gap-0 sm:gap-2">
           <Link
+            href="/miguel"
+            className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+          >
+            Miguel
+          </Link>
+          <Link
             href="/torneios"
             className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >

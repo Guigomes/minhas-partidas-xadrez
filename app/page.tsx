@@ -1,304 +1,184 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { useMatches } from '@/lib/hooks/use-matches';
-import { usePlayerGames, useTournaments } from '@/lib/hooks/use-tournaments';
-import { ChessInsights } from '@/components/tournaments/chess-insights';
-import { MatchSummary } from '@/components/matches/match-summary';
-import { MatchCharts } from '@/components/matches/match-charts';
-import { MatchTable } from '@/components/matches/match-table';
-import { CampaignList } from '@/components/tournaments/campaign-list';
-import { campaigns, numberLabel, score } from '@/lib/tournament/campaigns';
-import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
+import { useTournaments } from '@/lib/hooks/use-tournaments';
+import { groupEvents } from '@/lib/tournament/events';
+import { Badge } from '@/components/ui/badge';
+import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
-import { player } from '@/lib/config/player';
-import { isAdminEmail } from '@/lib/config/admins';
-import { useUser } from '@/lib/hooks/use-auth';
 import { formatDate } from '@/lib/utils/date';
 
+const LATEST = 8;
+const MODALITIES = ['Clássico', 'Rápido', 'Blitz'] as const;
+
+function numberLabel(n: number) {
+  return n.toLocaleString('pt-BR');
+}
+
 export default function HomePage() {
-  const { data: matches, isLoading, isError, refetch } = useMatches();
-  const { data: games } = usePlayerGames(`cbx-${player.cbxId}`);
-  const { data: tournaments } = useTournaments();
-  const { user } = useUser();
-  // Online (Chess.com / Lichess) e partidas avulsas só para o admin logado;
-  // os demais veem só a base de torneios. Regra só no front: os dados
-  // continuam legíveis no Firestore.
-  const isAdmin = isAdminEmail(user?.email);
-  const [selectedMode, setMode] = useState('tournament');
-  const mode = isAdmin ? selectedMode : 'tournament';
-  const [from, setFrom] = useState('');
-  const [to, setTo] = useState('');
-  const [modality, setModality] = useState('');
-  const invalidDates = !!from && !!to && from > to;
-  const visible = useMemo(
-    () =>
-      (matches ?? []).filter((m) => {
-        const category =
-          m.type === 'tournament'
-            ? 'tournament'
-            : m.type === 'manual'
-              ? 'manual'
-              : 'online';
-        return (
-          category === mode &&
-          (!from || m.date >= from) &&
-          (!to || m.date <= to) &&
-          (!modality || m.time_control === modality)
-        );
-      }),
-    [matches, mode, from, to, modality]
-  );
-  const groups = useMemo(() => campaigns(visible), [visible]);
-  const latest = groups[0];
+  const { data: tournaments, isLoading } = useTournaments();
+
+  const events = useMemo(() => groupEvents(tournaments ?? []), [tournaments]);
+
+  const stats = useMemo(() => {
+    const list = tournaments ?? [];
+    const byModality = new Map<string, number>();
+    for (const t of list) {
+      const key = t.time_control ?? 'Não informada';
+      byModality.set(key, (byModality.get(key) ?? 0) + 1);
+    }
+    return {
+      tournaments: list.length,
+      events: events.length,
+      entries: list.reduce((sum, t) => sum + t.player_count, 0),
+      games: list.reduce((sum, t) => sum + t.game_count, 0),
+      homologated: list.filter((t) => t.homologated === true).length,
+      byModality,
+    };
+  }, [tournaments, events]);
+
+  // Eventos mais recentes; os de data futura (ainda sem partidas) ficam de fora.
+  const latest = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    return events.filter((e) => e.date <= today).slice(0, LATEST);
+  }, [events]);
+
   return (
     <div>
       <section className="relative overflow-hidden bg-brand-950 text-white">
         <div className="board-pattern absolute inset-0 opacity-30" />
-        <div className="container-app relative py-8 sm:py-12">
-          <p className="text-sm font-medium uppercase tracking-widest text-brand-200">
-            Minha trajetória no xadrez
-          </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-            {player.fullName}
-          </h1>
+        <div className="container-app relative py-10 sm:py-14">
+          <p className="text-sm font-medium uppercase tracking-widest text-brand-200">Base de torneios</p>
+          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">Xadrez em campo</h1>
           <p className="mt-3 max-w-xl text-brand-100">
-            Torneios, resultados e evolução a cada partida.
+            Resultados, jogadores e partidas dos torneios importados do Chess-Results.
           </p>
-          <Link
-            href={`/jogadores/cbx-${player.cbxId}`}
-            className="mt-5 inline-block text-sm font-medium text-brand-100 underline underline-offset-4"
-          >
-            Conheça meus adversários e confrontos →
-          </Link>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/torneios"
+              className="rounded-lg bg-white px-4 py-2.5 text-sm font-semibold text-brand-900 hover:bg-brand-50"
+            >
+              Ver todos os torneios
+            </Link>
+            <Link
+              href="/jogadores"
+              className="rounded-lg border border-brand-200/50 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+            >
+              Buscar jogador
+            </Link>
+          </div>
         </div>
       </section>
-      <div className="container-app space-y-7 py-8">
-        {isAdmin && (
-        <div
-          className="flex flex-wrap gap-2"
-          role="group"
-          aria-label="Contexto das partidas"
-        >
-          {[
-            ['tournament', 'Torneios'],
-            ['online', 'Online'],
-            ['manual', 'Outras partidas'],
-          ].map(([value, label]) => (
-            <button
-              key={value}
-              aria-pressed={mode === value}
-              onClick={() => setMode(value)}
-              className={`rounded-full px-5 py-3 text-sm font-semibold ${mode === value ? 'bg-brand-700 text-white' : 'bg-white text-gray-600 dark:bg-gray-900 dark:text-gray-300'}`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        )}
-        <details className="card p-5">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Filtrar período e modalidade
-            {from || to || modality
-              ? ` · ${from ? formatDate(from) : 'Início'} até ${to ? formatDate(to) : 'hoje'} · ${modality || 'Todas'}`
-              : ' · Todo o histórico'}
-          </summary>
-          <section className="mt-4" aria-label="Filtros de todo o painel">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <Input
-                label="Desde"
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-              <Input
-                label="Até"
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-              <Select
-                label="Modalidade"
-                value={modality}
-                onChange={(e) => setModality(e.target.value)}
-              >
-                <option value="">Todas as modalidades</option>
-                {['Clássico', 'Rápido', 'Blitz', 'Bullet'].map((m) => (
-                  <option key={m}>{m}</option>
-                ))}
-              </Select>
-            </div>
-            <div className="mt-3 flex flex-wrap justify-between gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <p>
-                O período e a modalidade se aplicam a todos os resultados
-                abaixo.
-              </p>
-              <button
-                className="text-brand-700 underline dark:text-brand-300"
-                onClick={() => {
-                  setFrom('');
-                  setTo('');
-                  setModality('');
-                }}
-              >
-                Limpar filtros
-              </button>
-            </div>
-          </section>
-        </details>
-        {invalidDates ? (
-          <p role="alert">
-            A data final deve ser igual ou posterior à inicial.
-          </p>
-        ) : isLoading ? (
+
+      <div className="container-app space-y-8 py-8">
+        {isLoading ? (
           <PageSpinner />
-        ) : isError ? (
-          <div className="card p-6" role="alert">
-            Não foi possível carregar as partidas.{' '}
-            <button className="underline" onClick={() => refetch()}>
-              Tentar novamente
-            </button>
-          </div>
+        ) : !tournaments?.length ? (
+          <EmptyState
+            icon="🏆"
+            title="Nenhum torneio importado ainda"
+            description="Os torneios aparecem aqui depois de importados no painel de admin."
+          />
         ) : (
           <>
-            {mode === 'tournament' && latest && (
-              <section className="card border-l-4 border-l-brand-600 p-6 sm:p-8">
-                <p className="text-sm font-semibold uppercase tracking-wide text-brand-700 dark:text-brand-300">
-                  Último torneio no período
-                </p>
-                <h2 className="mt-2 text-xl font-bold sm:text-2xl">
-                  {latest.name}
-                </h2>
-                <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {formatDate(latest.date)} ·{' '}
-                  {latest.matches[0].time_control || 'Modalidade não informada'}
-                </p>
-                <p className="mt-5 text-4xl font-bold tabular-nums">
-                  {numberLabel(latest.points)}
-                  <span className="text-xl font-normal text-gray-500">
-                    {' '}
-                    / {latest.total} pontos
-                  </span>
-                </p>
-                <p className="mt-2 text-sm">
-                  {latest.wins} vitórias · {latest.draws} empates ·{' '}
-                  {latest.losses} derrotas nas partidas registradas.
-                </p>
-                {latest.total >= 2 && latest.wins === latest.total && (
-                  <p className="mt-4 font-semibold text-yellow-800 dark:text-yellow-300">
-                    Sequência perfeita registrada: {latest.wins} vitórias em{' '}
-                    {latest.total} partidas.
-                  </p>
-                )}
-                <a
-                  href="#campanhas"
-                  className="mt-5 inline-block text-sm font-semibold text-brand-700 dark:text-brand-300"
-                >
-                  Ver as rodadas ↓
-                </a>
-              </section>
-            )}
-            <section aria-label="Resumo do período">
-              <h2 className="mb-4 text-xl font-bold">
-                {from || to ? 'Resumo do período' : 'Resumo do histórico'}
-              </h2>
-              <MatchSummary matches={visible} />
-              {mode === 'tournament' && (
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {groups.filter((g) => g.tnr).length} torneios identificados ·
-                  Pontos de partidas jogadas, sem byes e W.O.
-                </p>
-              )}
+            <section aria-label="Estatísticas gerais" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Tile label="Eventos" value={numberLabel(stats.events)} />
+              <Tile label="Torneios" value={numberLabel(stats.tournaments)} hint="uma por categoria" />
+              <Tile label="Partidas" value={numberLabel(stats.games)} />
+              <Tile label="Inscrições" value={numberLabel(stats.entries)} hint="jogadores em cada torneio" />
+              <Tile label="Homologados" value={numberLabel(stats.homologated)} hint={`de ${numberLabel(stats.tournaments)}`} />
             </section>
-            {visible.length > 0 && (
-              <section>
-                <h2 className="mb-4 text-xl font-bold">
-                  Desempenho por modalidade
-                </h2>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {[
-                    ...new Set(
-                      visible.map((m) => m.time_control || 'Não informada')
-                    ),
-                  ].map((name) => {
-                    const s = score(
-                      visible.filter(
-                        (m) => (m.time_control || 'Não informada') === name
-                      )
-                    );
-                    return (
-                      <div className="card p-5" key={name}>
-                        <h3 className="font-semibold">{name}</h3>
-                        <p className="mt-2 text-2xl font-bold">
-                          {numberLabel(s.percent)}%
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {numberLabel(s.points)} pontos em {s.total} partidas
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-            )}
-            {mode === 'tournament' && groups.length > 0 && (
-              <section className="card p-5">
-                <h2 className="text-xl font-bold">Evolução por torneio</h2>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Aproveitamento nas partidas registradas. Compare também
-                  modalidade e número de jogos.
-                </p>
-                <div className="mt-5 space-y-4">
-                  {[...groups].reverse().map((g) => (
-                    <div key={g.id}>
-                      <div className="mb-1 flex flex-wrap justify-between gap-2 text-sm">
-                        <span>
-                          {formatDate(g.date)} · {g.name} ·{' '}
-                          {g.matches[0].time_control ||
-                            'Modalidade não informada'}
-                        </span>
-                        <span className="shrink-0 tabular-nums">
-                          {numberLabel(g.percent)}% · {g.total} jogos
+
+            <section aria-label="Torneios por modalidade" className="card p-4 sm:p-6">
+              <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">Por modalidade</h2>
+              <ul className="mt-3 space-y-3">
+                {[...MODALITIES, 'Não informada'].map((key) => {
+                  const count = stats.byModality.get(key) ?? 0;
+                  if (!count) return null;
+                  const pct = (count / stats.tournaments) * 100;
+                  return (
+                    <li key={key}>
+                      <div className="flex items-baseline justify-between text-sm">
+                        <span className="font-medium text-gray-900 dark:text-gray-100">{key}</span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          {numberLabel(count)} · {Math.round(pct)}%
                         </span>
                       </div>
-                      <div className="h-2 rounded-full bg-gray-100 dark:bg-gray-800">
-                        <div
-                          className="h-2 rounded-full bg-brand-600"
-                          style={{ width: `${g.percent}%` }}
-                        />
+                      <div className="mt-1 h-2 rounded-full bg-gray-100 dark:bg-gray-800" aria-hidden="true">
+                        <div className="h-2 rounded-full bg-brand-600" style={{ width: `${pct}%` }} />
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-            <MatchCharts matches={visible} showTrend={mode !== 'tournament'} />
-            {mode === 'tournament' && (
-              <ChessInsights
-                matches={visible}
-                games={games ?? []}
-                tournaments={tournaments ?? []}
-                playerKey={`cbx-${player.cbxId}`}
-              />
-            )}
-            {mode === 'tournament' ? (
-              <section id="campanhas" className="scroll-mt-20">
-                <h2 className="mb-4 text-xl font-bold">
-                  Campanhas por torneio
-                </h2>
-                <CampaignList matches={visible} />
-              </section>
-            ) : (
-              <section>
-                <h2 className="mb-4 text-xl font-bold">Partidas</h2>
-                <MatchTable matches={visible} hideDateFilters />
-              </section>
-            )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+
+            <section aria-label="Últimos eventos" className="space-y-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">Últimos eventos</h2>
+                <Link href="/torneios" className="text-sm font-medium text-brand-700 dark:text-brand-300 underline underline-offset-4">
+                  ver todos
+                </Link>
+              </div>
+              <ul className="space-y-2">
+                {latest.map((e) => {
+                  const single = e.tournaments.length === 1;
+                  return (
+                    <li key={e.key}>
+                      <Link
+                        href={single ? `/torneios/${e.tournaments[0].tnr}` : `/torneios?q=${encodeURIComponent(e.name)}`}
+                        className="card block px-4 py-3 hover:border-brand-400 transition-colors"
+                      >
+                        <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{e.name}</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(e.date)}</span>
+                          {!single && (
+                            <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                              {e.tournaments.length} categorias
+                            </Badge>
+                          )}
+                          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            {numberLabel(e.players)} jogadores
+                          </Badge>
+                          <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            {numberLabel(e.games)} partidas
+                          </Badge>
+                          {e.timeControls.map((tc) => (
+                            <Badge key={tc} className="bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold">
+                              {tc}
+                            </Badge>
+                          ))}
+                          {e.homologated === true && (
+                            <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
+                              ✅ Homologado
+                            </Badge>
+                          )}
+                          {e.homologated === false && (
+                            <Badge className="bg-yellow-50 text-yellow-800 dark:bg-yellow-950/40 dark:text-yellow-300">
+                              Não homologado
+                            </Badge>
+                          )}
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="card px-4 py-3 text-center">
+      <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
+      {hint && <p className="text-[11px] text-gray-400 dark:text-gray-500">{hint}</p>}
     </div>
   );
 }
