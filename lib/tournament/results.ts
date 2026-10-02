@@ -38,7 +38,7 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
 export const OUTCOME_CLASS: Record<Outcome, string> = {
   win: 'text-brand-600 dark:text-brand-400',
   loss: 'text-red-600 dark:text-red-400',
-  draw: 'text-yellow-700 dark:text-gold',
+  draw: 'text-gray-600 dark:text-gray-300',
   forfeit_win: 'text-gray-500 dark:text-gray-400',
   forfeit_loss: 'text-gray-500 dark:text-gray-400',
   double_forfeit: 'text-gray-500 dark:text-gray-400',

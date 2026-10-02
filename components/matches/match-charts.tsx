@@ -2,12 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import type { Match, MatchColor } from '@/types/match';
+import { numberLabel, score } from '@/lib/tournament/campaigns';
 
 // Cores de status (boa/neutra/crítica) — o resultado de uma partida é
 // avaliativo (bom/neutro/ruim), não uma categoria arbitrária, então usamos
 // a paleta de status em vez de tons categóricos. Sempre acompanhadas de
 // ícone + rótulo, nunca só a cor.
-const WIN_COLOR = '#0ca30c';
+const WIN_COLOR = '#4f6e2e';
 const DRAW_COLOR = '#898781';
 const LOSS_COLOR = '#d03b3b';
 
@@ -18,9 +19,9 @@ function resultSegments(matches: Match[]): Segment[] {
   const draw = matches.filter((m) => m.result === 'draw').length;
   const loss = matches.filter((m) => m.result === 'loss').length;
   return [
-    { key: 'win', label: 'Vitórias', icon: '🏆', count: win, color: WIN_COLOR },
-    { key: 'draw', label: 'Empates', icon: '➖', count: draw, color: DRAW_COLOR },
-    { key: 'loss', label: 'Derrotas', icon: '❌', count: loss, color: LOSS_COLOR },
+    { key: 'win', label: 'Vitórias', icon: '', count: win, color: WIN_COLOR },
+    { key: 'draw', label: 'Empates', icon: '', count: draw, color: DRAW_COLOR },
+    { key: 'loss', label: 'Derrotas', icon: '', count: loss, color: LOSS_COLOR },
   ];
 }
 
@@ -43,7 +44,7 @@ function PartToWholeBar({ segments, showLegend = true }: { segments: Segment[]; 
 
   return (
     <div>
-      <div className="flex h-7 gap-[2px] rounded-lg overflow-hidden">
+      <div className="flex h-7 gap-[2px] rounded-lg">
         {visible.map((s) => (
           <div
             key={s.key}
@@ -97,6 +98,7 @@ function ColorBreakdown({ matches }: { matches: Match[] }) {
             {COLOR_LABEL[color]} <span className="text-gray-400 dark:text-gray-500 font-normal">({byColor[color].length})</span>
           </p>
           <PartToWholeBar segments={resultSegments(byColor[color])} showLegend={false} />
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{numberLabel(score(byColor[color]).points)} pontos em {byColor[color].length} partidas · {byColor[color].length ? `${numberLabel(score(byColor[color]).percent)}%` : 'Sem partidas'}</p>
         </div>
       ))}
       <div className="flex flex-wrap gap-x-4 gap-y-1">
@@ -126,11 +128,11 @@ function monthlyTrend(matches: Match[]): TrendPoint[] {
   let cumTotal = 0;
   return months.map((key) => {
     const games = byMonth.get(key)!;
-    cumWins += games.filter((g) => g.result === 'win').length;
+    cumWins += score(games).points;
     cumTotal += games.length;
     const [y, mo] = key.split('-');
     const label = new Date(Number(y), Number(mo) - 1, 1).toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' });
-    return { key, label, winRate: Math.round((cumWins / cumTotal) * 100), wins: cumWins, total: cumTotal };
+    return { key, label, winRate: Math.round((cumWins / cumTotal) * 1000) / 10, wins: cumWins, total: cumTotal };
   });
 }
 
@@ -179,7 +181,7 @@ function TrendChart({ matches }: { matches: Match[] }) {
         <svg
           ref={svgRef}
           viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-          className="w-full h-auto touch-none"
+          className="w-full h-auto touch-pan-y"
           role="img"
           aria-label={`Taxa de aproveitamento acumulada: começou em ${points[0].winRate}% e está em ${last.winRate}%`}
           onPointerMove={onMove}
@@ -233,7 +235,7 @@ function TrendChart({ matches }: { matches: Match[] }) {
           })}
 
           <text x={x(points.length - 1)} y={y(last.winRate) - 8} fontSize={9} textAnchor="end" className="fill-gray-700 dark:fill-gray-300" fontWeight={600}>
-            {last.winRate}%
+            {numberLabel(last.winRate)}%
           </text>
         </svg>
 
@@ -241,13 +243,14 @@ function TrendChart({ matches }: { matches: Match[] }) {
           <div className="pointer-events-none absolute top-0 rounded-md bg-gray-900 dark:bg-gray-700 px-2 py-1 text-xs text-white shadow-lg"
             style={{ left: `${(x(activeIndex!) / CHART_W) * 100}%`, transform: 'translate(-50%, -110%)' }}
           >
-            <span className="font-semibold">{active.winRate}%</span> em {active.label} · {active.wins}/{active.total} partidas
+            <span className="font-semibold">{numberLabel(active.winRate)}%</span> em {active.label} · {numberLabel(active.wins)} pontos em {active.total} partidas
           </div>
         )}
       </div>
 
-      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-        Taxa de aproveitamento acumulada, mês a mês. Passe o mouse para ver os detalhes.
+      <div className="mt-2 flex justify-between text-xs text-gray-500 dark:text-gray-400"><span>{points[0].label}</span><span>{last.label}</span></div>
+      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+        Aproveitamento em pontos acumulado, mês a mês. Toque no gráfico ou consulte a tabela para ver os detalhes.
       </p>
     </div>
   );
@@ -305,7 +308,7 @@ function TrendTable({ matches }: { matches: Match[] }) {
           <tr key={p.key} className="border-t border-gray-100 dark:border-gray-800">
             <td className="py-1 pr-4 capitalize">{p.label}</td>
             <td className="py-1 pr-4 tabular-nums">{p.total}</td>
-            <td className="py-1 tabular-nums">{p.winRate}%</td>
+            <td className="py-1 tabular-nums">{numberLabel(p.winRate)}%</td>
           </tr>
         ))}
       </tbody>
@@ -313,7 +316,7 @@ function TrendTable({ matches }: { matches: Match[] }) {
   );
 }
 
-export function MatchCharts({ matches }: { matches: Match[] }) {
+export function MatchCharts({ matches, showTrend = true }: { matches: Match[]; showTrend?: boolean }) {
   if (matches.length === 0) return null;
 
   return (
@@ -331,13 +334,13 @@ export function MatchCharts({ matches }: { matches: Match[] }) {
         <ColorBreakdown matches={matches} />
       </div>
 
-      <div className="card p-5 sm:col-span-2">
+      {showTrend && <div className="card p-5 sm:col-span-2">
         <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">Evolução da taxa de aproveitamento</h3>
         <TrendChart matches={matches} />
         <TableToggle>
           <TrendTable matches={matches} />
         </TableToggle>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -4,7 +4,10 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useTournament, useTournamentGames, useTournamentPlayers } from '@/lib/hooks/use-tournaments';
-import { wasPlayed } from '@/lib/tournament/results';
+import { wasPlayed, outcomeFor, OUTCOME_LABEL, OUTCOME_CLASS } from '@/lib/tournament/results';
+import { player } from '@/lib/config/player';
+import { nameKey } from '@/lib/tournament/player-search';
+import { numberLabel } from '@/lib/tournament/campaigns';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
@@ -12,7 +15,7 @@ import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
 
-type Tab = 'ranking' | 'games';
+type Tab = 'campaign' | 'ranking' | 'games';
 
 type Row = {
   key: string;
@@ -52,9 +55,9 @@ export default function TournamentPage() {
   const params = useParams<{ tnr: string }>();
   const tnr = params.tnr;
   const { data: tournament, isLoading } = useTournament(tnr);
-  const { data: games } = useTournamentGames(tnr);
-  const { data: players } = useTournamentPlayers(tnr);
-  const [tab, setTab] = useState<Tab>('ranking');
+  const { data: games, isLoading: loadingGames, isError: gamesError } = useTournamentGames(tnr);
+  const { data: players, isLoading: loadingPlayers, isError: playersError } = useTournamentPlayers(tnr);
+  const [tab, setTab] = useState<Tab>('campaign');
   const [round, setRound] = useState<number | 'all'>('all');
 
   const rows = useMemo(() => {
@@ -89,8 +92,15 @@ export default function TournamentPage() {
   const rounds = useMemo(() => [...new Set((games ?? []).map((g) => g.round))].sort((a, b) => a - b), [games]);
   const shown = useMemo(() => (games ?? []).filter((g) => round === 'all' || g.round === round), [games, round]);
   const played = useMemo(() => (games ?? []).filter(wasPlayed).length, [games]);
+  const me = (players ?? []).find((p) => p.cbx_id === player.cbxId)
+    ?? (players ?? []).find((p) => nameKey(p.name) === nameKey(player.fullName));
+  const myKey = me?.key ?? `cbx-${player.cbxId}`;
+  const mine = (games ?? []).filter((g) => g.player_keys.includes(myKey)).sort((a, b) => a.round - b.round);
+  const myPlayed = mine.filter(wasPlayed);
+  const myPoints = myPlayed.reduce((sum, g) => sum + (outcomeFor(g, myKey) === 'win' ? 1 : outcomeFor(g, myKey) === 'draw' ? 0.5 : 0), 0);
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading || loadingGames || loadingPlayers) return <PageSpinner />;
+  if (gamesError || playersError) return <p role="alert" className="container-app py-10">Não foi possível carregar a campanha. Atualize a página para tentar novamente.</p>;
   if (!tournament) {
     return (
       <div className="container-app py-10">
@@ -147,18 +157,18 @@ export default function TournamentPage() {
         </div>
       </div>
 
-      <div role="tablist" className="flex gap-2">
+        <div role="group" aria-label="Informações do torneio" className="flex flex-wrap gap-2">
         {(
           [
-            ['ranking', 'Classificação e jogadores'],
-            ['games', 'Partidas'],
+            ['campaign', 'Campanha do Miguel'],
+            ['ranking', 'Pontos e jogadores'],
+            ['games', 'Todas as partidas'],
           ] as const
         ).map(([value, label]) => (
           <button
             key={value}
             type="button"
-            role="tab"
-            aria-selected={tab === value}
+            aria-pressed={tab === value}
             onClick={() => setTab(value)}
             className={cn(
               'rounded-lg px-4 py-2 text-sm font-medium transition-colors',
@@ -172,8 +182,23 @@ export default function TournamentPage() {
         ))}
       </div>
 
-      {tab === 'ranking' ? (
+      {tab === 'campaign' ? (
+        <section className="card p-5 sm:p-7">
+          <h2 className="text-xl font-bold">{player.name} neste torneio</h2>
+          {mine.length ? <>
+            <p className="mt-4 text-3xl font-bold text-brand-700 dark:text-brand-300">{numberLabel(myPoints)} / {myPlayed.length} pontos</p>
+            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Nas partidas jogadas registradas · {myPlayed.length ? `${numberLabel(myPoints / myPlayed.length * 100)}% de aproveitamento` : 'Sem partidas jogadas'} · W.O. e byes fora deste indicador.</p>
+            <ol className="mt-5 divide-y dark:divide-gray-800">{mine.map((g) => {
+              const white = g.white.key === myKey;
+              const opponent = white ? g.black : g.white;
+              const result = outcomeFor(g, myKey);
+              return <li key={g.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-4 text-sm"><span className="text-gray-500">R{g.round}</span><div><Link className="font-medium hover:underline" href={`/jogadores/${opponent.key}`}>{opponent.name}</Link><p className="text-xs text-gray-500 dark:text-gray-400">{white ? 'Brancas' : 'Pretas'}{opponent.rating ? ` · Rating informado: ${opponent.rating}` : ''}</p></div><span className={cn('font-semibold', OUTCOME_CLASS[result])}>{OUTCOME_LABEL[result]}</span></li>;
+            })}</ol>
+          </> : <p className="mt-4 text-gray-500">Não há partidas do Miguel identificadas neste torneio. Explore os jogadores e as demais partidas nas abas acima.</p>}
+        </section>
+      ) : tab === 'ranking' ? (
         <div className="card p-4 sm:p-6 overflow-x-auto">
+          <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">Pontuação das partidas registradas, incluindo W.O. Byes e desempates oficiais não estão disponíveis aqui. Consulte a classificação oficial no Chess-Results.</p>
           {!games?.length && (
             <p className="text-xs text-yellow-800 dark:text-yellow-300 mb-3">
               Nenhuma partida publicada ainda: só a lista de inscritos.
@@ -182,17 +207,15 @@ export default function TournamentPage() {
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-800">
-                <th className="py-2 pr-2 font-medium">#</th>
                 <th className="py-2 pr-3 font-medium">Jogador</th>
-                <th className="py-2 px-2 font-medium text-center">Rating</th>
+                <th className="py-2 px-2 font-medium text-center">Rating cadastrado</th>
                 <th className="py-2 px-2 font-medium text-center">Pts</th>
                 <th className="py-2 pl-2 font-medium hidden sm:table-cell">Clube / cidade</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.key} className="border-b border-gray-100 dark:border-gray-800/60">
-                  <td className="py-2 pr-2 text-gray-400">{i + 1}</td>
+              {rows.map((r) => (
+                <tr key={r.key} className={cn('border-b border-gray-100 dark:border-gray-800/60', r.key === myKey && 'bg-brand-50 dark:bg-brand-950 font-semibold')}>
                   <td className="py-2 pr-3">
                     <Link href={`/jogadores/${r.key}`} className="text-gray-900 dark:text-gray-100 hover:underline">
                       {r.title && <span className="text-gold mr-1">{r.title}</span>}

@@ -10,6 +10,7 @@ import { PageSpinner } from '@/components/ui/spinner';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
+import { numberLabel } from '@/lib/tournament/campaigns';
 
 type OpponentRecord = {
   key: string;
@@ -46,7 +47,7 @@ export default function PlayerPage() {
       else losses++;
     }
     const played = wins + draws + losses;
-    const pct = played ? Math.round(((wins + draws / 2) / played) * 100) : 0;
+    const pct = played ? ((wins + draws / 2) / played) * 100 : 0;
     return { wins, draws, losses, played, forfeits, pct };
   }, [games, key]);
 
@@ -141,7 +142,7 @@ export default function PlayerPage() {
               FIDE {profile.fide_id} ↗
             </a>
           )}
-          {profile?.rating && <span>Rating {profile.rating}</span>}
+          {profile?.rating && <span>Rating cadastrado {profile.rating} · modalidade/data não informadas</span>}
           {profile?.club && <span>{profile.club}</span>}
         </div>
       </div>
@@ -149,9 +150,9 @@ export default function PlayerPage() {
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <Stat label="Partidas" value={stats.played} />
         <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" />
-        <Stat label="Empates" value={stats.draws} className="text-yellow-700 dark:text-gold" />
+        <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" />
         <Stat label="Derrotas" value={stats.losses} className="text-red-600 dark:text-red-400" />
-        <Stat label="Aproveitamento" value={`${stats.pct}%`} />
+        <Stat label="Aproveitamento" value={stats.played ? `${numberLabel(stats.pct)}%` : '—'} />
       </div>
       {stats.forfeits > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 -mt-5">
@@ -188,7 +189,7 @@ export default function PlayerPage() {
                     <td className="py-2 px-2 text-center">{o.wins + o.draws + o.losses}</td>
                     <td className="py-2 px-2 text-center whitespace-nowrap">
                       <span className="text-brand-600 dark:text-brand-400">{o.wins}</span> /{' '}
-                      <span className="text-yellow-700 dark:text-gold">{o.draws}</span> /{' '}
+                      <span className="text-gray-600 dark:text-gray-300">{o.draws}</span> /{' '}
                       <span className="text-red-600 dark:text-red-400">{o.losses}</span>
                     </td>
                     <td className="py-2 pl-2 text-right text-gray-500 dark:text-gray-400 whitespace-nowrap">

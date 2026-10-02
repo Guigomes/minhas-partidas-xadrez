@@ -10,24 +10,24 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/90">
-      <div className="container-app flex h-14 items-center justify-between gap-4">
+      <div className="container-app flex h-16 items-center justify-between gap-2">
         <Link href="/" className="flex items-center gap-2 font-display text-brand-700 dark:text-brand-400">
           <span className="inline-flex items-center justify-center h-8 w-8 rounded-full bg-brand-600 text-white shadow-sm text-lg">
             ♟️
           </span>
-          <span className="hidden sm:inline tracking-wide">{player.title}</span>
+          <span className="hidden sm:inline font-bold tracking-tight">{player.name} · Xadrez</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-0 sm:gap-2">
           <Link
             href="/torneios"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+            className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >
             Torneios
           </Link>
           <Link
             href="/jogadores"
-            className="rounded-lg px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
+            className="rounded-lg px-2 py-3 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800 transition-colors"
           >
             Jogadores
           </Link>
@@ -35,16 +35,16 @@ export function Header() {
           {user ? (
             <Link
               href="/admin"
-              className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+              className="rounded-lg px-2 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
             >
               Painel
             </Link>
           ) : (
             <Link
               href="/login"
-              className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-700 transition-colors"
+              className="rounded-lg px-2 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 hover:underline"
             >
-              Entrar
+              Admin
             </Link>
           )}
         </div>

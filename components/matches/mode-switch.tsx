@@ -9,7 +9,7 @@ export type Mode = 'tournament' | 'online';
 
 export const MODES: { value: Mode; label: string; icon: string; hint: string }[] = [
   { value: 'tournament', label: 'Torneio', icon: '🏆', hint: 'Partidas de torneios' },
-  { value: 'online', label: 'Chess.com', icon: '♟️', hint: 'Chess.com, Lichess e manuais' },
+  { value: 'online', label: 'Online e outras', icon: '♟️', hint: 'Chess.com, Lichess e manuais' },
 ];
 
 export function modeOf(match: Match): Mode {

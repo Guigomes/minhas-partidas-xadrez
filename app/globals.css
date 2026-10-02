@@ -8,7 +8,7 @@
   }
 
   body {
-    @apply bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased;
+    @apply bg-stone-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 antialiased;
   }
 
   html {
@@ -16,17 +16,23 @@
   }
 
   :focus-visible {
-    @apply outline-2 outline-offset-2 outline-brand-500;
+    @apply outline outline-2 outline-offset-2 outline-brand-500;
+  }
+
+  h1, h2, h3 { @apply font-semibold tracking-tight; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
   }
 }
 
 @layer components {
   .container-app {
-    @apply mx-auto w-full max-w-3xl px-4 sm:px-6;
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6;
   }
 
   .card {
-    @apply rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900;
+    @apply rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900;
   }
 
   /* Tabuleiro: padrão xadrez sutil sobre o degradê verde do hero */
@@ -43,12 +49,12 @@
   /* Tokens dos gráficos de estatísticas (components/matches/match-charts.tsx) */
   .viz-root {
     --chart-grid: #e1e0d9;
-    --chart-axis: #c3c2b7;
+    --chart-axis: #64748b;
     --chart-series-1: #2a78d6;
   }
   .dark .viz-root {
     --chart-grid: #2c2c2a;
-    --chart-axis: #383835;
+    --chart-axis: #94a3b8;
     --chart-series-1: #3987e5;
   }
 }

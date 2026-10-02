@@ -34,15 +34,15 @@ const SORT_OPTIONS: { key: SortKey; label: string }[] = [
 ];
 
 const RESULT_LABEL: Record<Match['result'], string> = {
-  win: '🏆 Vitória',
-  loss: '❌ Derrota',
-  draw: '➖ Empate',
+  win: '1 · Vitória',
+  loss: '0 · Derrota',
+  draw: '½ · Empate',
 };
 
 const RESULT_BADGE_CLASS: Record<Match['result'], string> = {
   win: 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300',
   loss: 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300',
-  draw: 'bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold',
+  draw: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
 };
 
 const RESULT_ORDER: Record<Match['result'], number> = { win: 0, draw: 1, loss: 2 };
@@ -331,7 +331,7 @@ function PgnBoardModal({ pgn, orientation, onClose }: { pgn: string; orientation
   );
 }
 
-function PgnDisclosure({ pgn, orientation }: { pgn: string; orientation: MatchColor }) {
+export function PgnDisclosure({ pgn, orientation }: { pgn: string; orientation: MatchColor }) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -388,7 +388,7 @@ function PgnDisclosure({ pgn, orientation }: { pgn: string; orientation: MatchCo
   );
 }
 
-export function MatchTable({ matches, editable = false }: { matches: Match[]; editable?: boolean }) {
+export function MatchTable({ matches, editable = false, hideDateFilters = false }: { matches: Match[]; editable?: boolean; hideDateFilters?: boolean }) {
   const deleteMatch = useDeleteMatch();
   const updateMatch = useUpdateMatch();
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
@@ -494,8 +494,8 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Input label="De" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-        <Input label="Até" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+        {!hideDateFilters && <Input label="De" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />}
+        {!hideDateFilters && <Input label="Até" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />}
       </div>
 
       {availableTypes.length > 1 && (
@@ -537,6 +537,7 @@ export function MatchTable({ matches, editable = false }: { matches: Match[]; ed
       )}
 
       <div className="flex flex-wrap items-center gap-2 mb-3">
+        {hideDateFilters && <p className="w-full text-sm text-gray-500">Os filtros desta lista não alteram os indicadores acima.</p>}
         <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Ordenar por:</span>
         {SORT_OPTIONS.map((opt) => (
           <button

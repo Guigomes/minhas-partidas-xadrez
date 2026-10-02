@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useTournaments } from '@/lib/hooks/use-tournaments';
+import { useMatches } from '@/lib/hooks/use-matches';
+import { campaigns, numberLabel } from '@/lib/tournament/campaigns';
 import { normalizeText } from '@/lib/tournament/player-search';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -13,29 +15,38 @@ import { formatDate } from '@/lib/utils/date';
 
 export default function TournamentsPage() {
   const { data: tournaments, isLoading } = useTournaments();
+  const { data: matches, isLoading: loadingMatches, isError: matchesError } = useMatches();
+  const [mineOnly, setMineOnly] = useState(true);
+  const mine = useMemo(() => new Map(campaigns(matches ?? []).filter((c) => c.tnr).map((c) => [c.tnr, c])), [matches]);
   const [search, setSearch] = useState('');
   const [timeControl, setTimeControl] = useState('');
 
   const filtered = useMemo(() => {
     const words = normalizeText(search).split(/\s+/).filter(Boolean);
     return (tournaments ?? []).filter((t) => {
+      if (mineOnly && !mine.has(t.tnr)) return false;
       if (timeControl && (t.time_control ?? 'none') !== timeControl) return false;
       const name = normalizeText(t.name);
       return words.every((w) => name.includes(w));
     });
-  }, [tournaments, search, timeControl]);
+  }, [tournaments, search, timeControl, mineOnly, mine]);
 
-  if (isLoading) return <PageSpinner />;
+  if (isLoading || loadingMatches) return <PageSpinner />;
 
   return (
     <div className="container-app py-10 space-y-6">
       <div>
         <h1 className="font-display text-3xl text-brand-700 dark:text-brand-400">Torneios</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          Torneios importados do Chess-Results. Abra um para ver a classificação, os jogadores e as partidas de cada
-          rodada.
+          Explore a campanha do Miguel, os jogadores e as partidas de cada rodada.
         </p>
       </div>
+
+      <div role="group" aria-label="Participação nos torneios" className="flex flex-wrap gap-2">
+        <button aria-pressed={mineOnly} onClick={() => setMineOnly(true)} className={`rounded-full px-4 py-3 text-sm font-semibold ${mineOnly ? 'bg-brand-700 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>Torneios do Miguel</button>
+        <button aria-pressed={!mineOnly} onClick={() => setMineOnly(false)} className={`rounded-full px-4 py-3 text-sm font-semibold ${!mineOnly ? 'bg-brand-700 text-white' : 'bg-gray-100 dark:bg-gray-800'}`}>Todos os torneios</button>
+      </div>
+      {matchesError && mineOnly && <p role="alert">Não foi possível identificar as participações do Miguel. Atualize a página ou explore todos os torneios.</p>}
 
       <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
         <Input
@@ -58,7 +69,7 @@ export default function TournamentsPage() {
         <EmptyState
           icon="🏆"
           title="Nenhum torneio encontrado"
-          description="Tente outras palavras ou importe um torneio no painel de admin."
+          description="Tente outras palavras ou selecione todas as modalidades."
         />
       ) : (
         <ul className="space-y-2">
@@ -66,6 +77,7 @@ export default function TournamentsPage() {
             <li key={t.tnr}>
               <Link href={`/torneios/${t.tnr}`} className="card block px-4 py-3 hover:border-brand-400 transition-colors">
                 <p className="font-medium text-gray-900 dark:text-gray-100 break-words">{t.name}</p>
+                {mine.get(t.tnr) && <p className="mt-2 text-sm font-semibold text-brand-700 dark:text-brand-300">Miguel · {numberLabel(mine.get(t.tnr)!.points)}/{mine.get(t.tnr)!.total} pontos nas partidas registradas</p>}
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   <span className="text-xs text-gray-500 dark:text-gray-400">{formatDate(t.date)}</span>
                   <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">

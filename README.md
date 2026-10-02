@@ -1,5 +1,29 @@
 # Minhas Partidas de Xadrez
 
+## Painel de evolução do Miguel
+
+A página inicial abre nos torneios, com destaque para a campanha mais recente,
+filtros globais de período/modalidade, aproveitamento em pontos (vitória = 1;
+empate = ½), comparação por modalidade e cor e evolução por torneio. As campanhas
+agrupam as partidas pelo ID Chess-Results e ordenam as rodadas numericamente.
+Partidas de torneio sem identificador ficam avulsas para evitar agrupamentos incorretos.
+Online e outras partidas ficam em contextos separados; a busca na lista online
+afeta somente a lista, conforme indicado na interface.
+
+A lista de torneios prioriza as participações identificadas do Miguel e permite
+explorar todos os eventos. Cada torneio abre na campanha dele, com acesso aos
+adversários e a uma tabela de pontos, sem atribuir colocações não oficiais.
+
+**Limites dos dados:** pontos e destaques consideram as partidas registradas, que
+podem não representar todas as rodadas. A tabela do torneio inclui W.O., mas a
+importação atual não preserva byes nem desempates oficiais. A classificação oficial
+continua disponível pelo link Chess-Results. Ratings publicados nos eventos são
+apresentados com contexto e não equivalem a histórico oficial CBX/FIDE. Não são
+inferidos pódios, títulos, performance Elo ou análises de lances a partir do placar.
+
+Validação dos cálculos e agrupamento: `npm test`. Verificação de tipos:
+`npm run type-check`.
+
 Site pessoal para registrar minhas partidas de xadrez, com estatísticas públicas (vitórias, derrotas, empates, taxa de aproveitamento) e um painel de administração para adicionar, editar e remover partidas.
 
 Baseado na mesma stack e estrutura do projeto [`confirmar-presenca-miguel-front`](https://github.com/guigomes/confirmar-presenca-miguel-front).
