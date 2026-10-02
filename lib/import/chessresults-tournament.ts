@@ -5,7 +5,7 @@ import type {
   TournamentPlayer,
 } from '@/types/tournament';
 import { stripHtmlTags } from './html-entities';
-import { playerKey } from '../tournament/player-search';
+import { nameKey, playerKey } from '../tournament/player-search';
 
 // Importação do torneio INTEIRO no chess-results (todos os jogadores e todas
 // as partidas), diferente de chessresults.ts, que só pega as partidas do
@@ -44,14 +44,14 @@ const BLACK_RESULT: Record<RowResult, TournamentGameResult> = {
   '-': '+-',
 };
 
-function pageUrl(tnr: string, art: number): string {
+function pageUrl(tnr: string, art: number, extra = ''): string {
   // turdet=YES: torneios antigos escondem as listas atrás do botão "mostrar
   // detalhes do torneio". zeilen=99999: sem paginação.
-  return `https://chess-results.com/tnr${tnr}.aspx?lan=10&art=${art}&zeilen=99999&turdet=YES`;
+  return `https://chess-results.com/tnr${tnr}.aspx?lan=10&art=${art}&zeilen=99999&turdet=YES${extra}`;
 }
 
-async function fetchPage(tnr: string, art: number): Promise<string> {
-  const res = await fetch(pageUrl(tnr, art), { headers: { 'User-Agent': 'minhas-partidas-xadrez' } });
+async function fetchPage(tnr: string, art: number, extra = ''): Promise<string> {
+  const res = await fetch(pageUrl(tnr, art, extra), { headers: { 'User-Agent': 'minhas-partidas-xadrez' } });
   if (!res.ok) throw { status: 502, message: `Erro ao consultar o chess-results (HTTP ${res.status}).` };
   return res.text();
 }
@@ -193,6 +193,58 @@ function parseCrosstable(html: string): { names: Map<number, string>; cells: Map
   return { names, cells };
 }
 
+// Emparceiramentos de todas as rodadas (art=2). Serve de plano B quando a tabela
+// cruzada não tem colunas de rodada (torneios todos-contra-todos, onde ela vira
+// uma matriz de resultados) e dá a data real de cada rodada — "1. Ronda a
+// 2026/06/11 às 18h00min" — em vez da data de atualização da página.
+type PairingGame = { round: number; white: string; black: string; result: TournamentGameResult };
+
+const PAIRING_RESULT: Record<string, TournamentGameResult> = {
+  '1-0': '1-0',
+  '0-1': '0-1',
+  '½-½': '1/2-1/2',
+  '1/2-1/2': '1/2-1/2',
+  '+--': '+-',
+  '--+': '-+',
+  '---': '--',
+};
+
+function parsePairings(html: string): { games: PairingGame[]; firstRoundDate: string | null } {
+  const games: PairingGame[] = [];
+  let firstRoundDate: string | null = null;
+  let round = 0;
+  let whiteIdx = -1;
+  let blackIdx = -1;
+  let resultIdx = -1;
+
+  for (const cells of tableRows(html)) {
+    if (cells.length === 1) {
+      const head = cells[0].match(/^(\d+)\.\s*\S+\s+a?\s*(?:(\d{4})\/(\d{2})\/(\d{2}))?/);
+      if (head) {
+        round = Number(head[1]);
+        if (round === 1 && head[2]) firstRoundDate = `${head[2]}-${head[3]}-${head[4]}`;
+      }
+      continue;
+    }
+    const w = cells.findIndex((c) => c === 'White' || c === 'Brancas');
+    const b = cells.findIndex((c) => c === 'Black' || c === 'Pretas');
+    if (w >= 0 && b >= 0) {
+      whiteIdx = w;
+      blackIdx = b;
+      resultIdx = cells.findIndex((c) => /^(Resultado|Result|Ergebnis)$/.test(c));
+      continue;
+    }
+    if (!round || whiteIdx < 0 || resultIdx < 0) continue;
+    const white = cells[whiteIdx]?.trim();
+    const black = cells[blackIdx]?.trim();
+    // Bye / sem adversário: a linha não tem resultado com dois lados.
+    if (!white || !black || /^(bye|not paired|n[aã]o emparceirado)$/i.test(black)) continue;
+    const result = PAIRING_RESULT[(cells[resultIdx] ?? '').replace(/\s+/g, '')];
+    if (result) games.push({ round, white, black, result });
+  }
+  return { games, firstRoundDate };
+}
+
 export function tnrFromUrl(url: string): string {
   let parsed: URL;
   try {
@@ -210,16 +262,25 @@ export function tnrFromUrl(url: string): string {
 
 export async function fetchFullTournament(url: string): Promise<ParsedTournament> {
   const tnr = tnrFromUrl(url);
-  const [listHtml, crossHtml] = await Promise.all([fetchPage(tnr, 0), fetchPage(tnr, 5)]);
-  return buildTournament(tnr, listHtml, crossHtml);
+  // art=2 é opcional (plano B de partidas e data): se falhar, segue sem ele.
+  const [listHtml, crossHtml, pairHtml] = await Promise.all([
+    fetchPage(tnr, 0),
+    fetchPage(tnr, 5),
+    fetchPage(tnr, 2, '&rd=1').catch(() => ''),
+  ]);
+  return buildTournament(tnr, listHtml, crossHtml, pairHtml);
 }
 
 // Separado do fetch pra dar pra testar com HTML salvo.
-export function buildTournament(tnr: string, listHtml: string, crossHtml: string): ParsedTournament {
+export function buildTournament(tnr: string, listHtml: string, crossHtml: string, pairHtml = ''): ParsedTournament {
   const listed = parsePlayerList(listHtml);
   const cross = parseCrosstable(crossHtml);
   const name = tournamentName(listHtml);
-  const { date, exact: date_exact } = tournamentDate(listHtml);
+  const pairings = parsePairings(pairHtml);
+  const listedDate = tournamentDate(listHtml);
+  // A data da 1ª rodada é a data real do torneio; a da página é só um palpite.
+  const date = listedDate.exact || !pairings.firstRoundDate ? listedDate.date : pairings.firstRoundDate;
+  const date_exact = listedDate.exact || !!pairings.firstRoundDate;
 
   // Jogadores: a lista inicial traz IDs, rating e o nome na ordem natural
   // ("Tiago Cunha Navarro"; a tabela cruzada usa "Navarro Tiago Cunha").
@@ -274,6 +335,33 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
         white: w,
         black: b,
         result,
+        player_keys: [w.key, b.key],
+      });
+    }
+  }
+
+  // Todos-contra-todos: sem colunas de rodada na tabela cruzada, as partidas
+  // vêm dos emparceiramentos, ligando os nomes aos jogadores (a ordem das
+  // palavras varia entre as páginas, então compara pela chave do nome).
+  if (games.size === 0 && pairings.games.length) {
+    const bySnr = new Map<string, number>();
+    for (const p of players.values()) bySnr.set(nameKey(p.name), p.snr);
+    for (const g of pairings.games) {
+      const white = bySnr.get(nameKey(g.white));
+      const black = bySnr.get(nameKey(g.black));
+      if (!white || !black) continue;
+      const id = `${tnr}-r${g.round}-${white}-${black}`;
+      const w = side(white);
+      const b = side(black);
+      games.set(id, {
+        id,
+        tnr,
+        tournament_name: name,
+        date,
+        round: g.round,
+        white: w,
+        black: b,
+        result: g.result,
         player_keys: [w.key, b.key],
       });
     }
