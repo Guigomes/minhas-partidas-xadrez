@@ -13,6 +13,10 @@ import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
 import { numberLabel } from '@/lib/tournament/campaigns';
 
+type Detail = 'tournaments' | 'win' | 'draw' | 'loss';
+
+const DETAIL_PAGE = 30;
+
 type OpponentSort = 'games' | 'recent' | 'oldest' | 'name' | 'wins' | 'losses' | 'percent';
 
 const OPPONENT_SORT_OPTIONS: { value: OpponentSort; label: string }[] = [
@@ -44,6 +48,13 @@ export default function PlayerPage() {
   const { data: tournaments } = useTournaments();
   const [openOpponents, setOpenOpponents] = useState<Set<string>>(new Set());
   const [opponentSort, setOpponentSort] = useState<OpponentSort>('games');
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [detailLimit, setDetailLimit] = useState(DETAIL_PAGE);
+
+  function toggleDetail(next: Detail) {
+    setDetail((cur) => (cur === next ? null : next));
+    setDetailLimit(DETAIL_PAGE);
+  }
 
   function toggleOpponent(opponentKey: string) {
     setOpenOpponents((prev) => {
@@ -133,6 +144,18 @@ export default function PlayerPage() {
     return [...map.entries()];
   }, [games]);
 
+  // Partidas jogadas de um resultado (vitória, empate ou derrota), da mais recente para a mais antiga.
+  const detailGames = useMemo(() => {
+    if (detail !== 'win' && detail !== 'draw' && detail !== 'loss') return [];
+    return (games ?? [])
+      .filter((g) => {
+        if (!wasPlayed(g)) return false;
+        const o = outcomeFor(g, key);
+        return detail === 'win' ? o === 'win' : detail === 'draw' ? o === 'draw' : o === 'loss';
+      })
+      .sort((a, b) => b.date.localeCompare(a.date) || b.tnr.localeCompare(a.tnr) || a.round - b.round);
+  }, [games, key, detail]);
+
   if (loadingProfile || loadingGames) return <PageSpinner />;
 
   if (!profile && !games?.length) {
@@ -193,17 +216,110 @@ export default function PlayerPage() {
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        <Stat label="Torneios" value={byTournament.length} />
-        <Stat label="Partidas" value={stats.played} />
-        <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" />
-        <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" />
-        <Stat label="Derrotas" value={stats.losses} className="text-red-600 dark:text-red-400" />
+        <Stat label="Torneios" value={byTournament.length} active={detail === 'tournaments'} onClick={() => toggleDetail('tournaments')} />
+        <Stat label="Partidas" value={stats.played} href="#partidas" />
+        <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" active={detail === 'win'} onClick={() => toggleDetail('win')} />
+        <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" active={detail === 'draw'} onClick={() => toggleDetail('draw')} />
+        <Stat label="Derrotas" value={stats.losses} className="text-red-600 dark:text-red-400" active={detail === 'loss'} onClick={() => toggleDetail('loss')} />
         <Stat label="Aproveitamento" value={stats.played ? `${numberLabel(stats.pct)}%` : '—'} />
       </div>
       {stats.forfeits > 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 -mt-5">
           + {stats.forfeits} {stats.forfeits === 1 ? 'partida' : 'partidas'} por W.O., fora das estatísticas.
         </p>
+      )}
+
+      {detail && (
+        <section id="detalhe" className="card p-4 sm:p-6" aria-live="polite">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">
+              {detail === 'tournaments'
+                ? `Torneios (${byTournament.length})`
+                : `${detail === 'win' ? 'Vitórias' : detail === 'draw' ? 'Empates' : 'Derrotas'} (${detailGames.length})`}
+            </h2>
+            <button
+              type="button"
+              onClick={() => setDetail(null)}
+              className="shrink-0 py-1 text-sm font-medium text-brand-700 dark:text-brand-300 underline underline-offset-2"
+            >
+              fechar
+            </button>
+          </div>
+
+          {detail === 'tournaments' ? (
+            <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800/60">
+              {[...byTournament]
+                .sort((a, b) => b[1].date.localeCompare(a[1].date) || a[1].name.localeCompare(b[1].name, 'pt-BR'))
+                .map(([tnr, t]) => {
+                  let w = 0;
+                  let d = 0;
+                  let l = 0;
+                  for (const g of t.games) {
+                    if (!wasPlayed(g)) continue;
+                    const o = outcomeFor(g, key);
+                    if (o === 'win') w++;
+                    else if (o === 'draw') d++;
+                    else l++;
+                  }
+                  const tc = timeControlByTnr.get(tnr);
+                  const hom = homologatedByTnr.get(tnr);
+                  return (
+                    <li key={tnr} className="py-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <Link href={`/torneios/${tnr}`} className="min-w-0 font-medium hover:underline break-words">
+                          {t.name}
+                        </Link>
+                        <p className="shrink-0 text-sm font-semibold whitespace-nowrap" title="Vitórias / Empates / Derrotas">
+                          <span className="text-brand-600 dark:text-brand-400">{w}</span> /{' '}
+                          <span className="text-gray-600 dark:text-gray-300">{d}</span> /{' '}
+                          <span className="text-red-600 dark:text-red-400">{l}</span>
+                        </p>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {formatDate(t.date)}
+                        {tc && ` · ${tc}`}
+                        {hom === true && ' · ✅ homologado'}
+                        {hom === false && ' · não homologado'}
+                        {` · ${w + d + l} ${w + d + l === 1 ? 'partida' : 'partidas'}`}
+                      </p>
+                    </li>
+                  );
+                })}
+            </ul>
+          ) : (
+            <>
+              <ul className="mt-3 divide-y divide-gray-100 dark:divide-gray-800/60">
+                {detailGames.slice(0, detailLimit).map((g) => {
+                  const opp = g.white.key === key ? g.black : g.white;
+                  const tc = timeControlByTnr.get(g.tnr);
+                  return (
+                    <li key={g.id} className="py-3">
+                      <Link href={`/jogadores/${opp.key}`} className="font-medium hover:underline break-words">
+                        {opp.name}
+                      </Link>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        <Link href={`/torneios/${g.tnr}`} className="hover:underline">
+                          {g.tournament_name}
+                        </Link>
+                        {` · ${formatDate(g.date)} · Rodada ${g.round} · ${g.white.key === key ? '♔ Brancas' : '♚ Pretas'}`}
+                        {tc && ` · ${tc}`}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+              {detailGames.length > detailLimit && (
+                <button
+                  type="button"
+                  onClick={() => setDetailLimit((n) => n + DETAIL_PAGE)}
+                  className="mt-3 w-full rounded-lg bg-gray-100 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  mostrar mais ({detailGames.length - detailLimit} restantes)
+                </button>
+              )}
+            </>
+          )}
+        </section>
       )}
 
       {opponents.length > 0 && (
@@ -297,7 +413,7 @@ export default function PlayerPage() {
         </section>
       )}
 
-      <section className="space-y-4">
+      <section id="partidas" className="space-y-4 scroll-mt-20">
         <h2 className="font-display text-xl text-brand-700 dark:text-brand-400">Partidas por torneio</h2>
         {byTournament.map(([tnr, t]) => (
           <div key={tnr} className="card p-4 sm:p-6">
@@ -350,11 +466,55 @@ export default function PlayerPage() {
   );
 }
 
-function Stat({ label, value, className }: { label: string; value: number | string; className?: string }) {
-  return (
-    <div className="card px-4 py-3 text-center">
+function Stat({
+  label,
+  value,
+  className,
+  onClick,
+  href,
+  active,
+}: {
+  label: string;
+  value: number | string;
+  className?: string;
+  onClick?: () => void;
+  href?: string;
+  active?: boolean;
+}) {
+  const body = (
+    <>
       <p className={cn('text-2xl font-bold text-gray-900 dark:text-gray-100', className)}>{value}</p>
       <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-    </div>
+    </>
   );
+  const base = 'card px-4 py-3 text-center';
+  const interactive =
+    'block w-full transition-colors hover:border-brand-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-600';
+  if (href) {
+    return (
+      <a href={href} className={cn(base, interactive)}>
+        {body}
+        <span className="text-[11px] font-medium text-brand-700 dark:text-brand-300 underline underline-offset-2">
+          ver partidas
+        </span>
+      </a>
+    );
+  }
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        aria-expanded={!!active}
+        aria-controls="detalhe"
+        className={cn(base, interactive, active && 'border-brand-600 bg-brand-50 dark:bg-brand-950')}
+      >
+        {body}
+        <span className="text-[11px] font-medium text-brand-700 dark:text-brand-300 underline underline-offset-2">
+          {active ? 'ocultar' : 'ver detalhes'}
+        </span>
+      </button>
+    );
+  }
+  return <div className={base}>{body}</div>;
 }
