@@ -162,7 +162,8 @@ export default function PlayerPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <Stat label="Torneios" value={byTournament.length} />
         <Stat label="Partidas" value={stats.played} />
         <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" />
         <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" />
