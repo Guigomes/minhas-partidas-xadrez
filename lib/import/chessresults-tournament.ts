@@ -245,6 +245,45 @@ function parsePairings(html: string): { games: PairingGame[]; firstRoundDate: st
   return { games, firstRoundDate };
 }
 
+// Modalidade (Clássico / Rápido / Blitz). O chess-results informa em "Time control
+// (Rapid)" nos detalhes do torneio, que em torneios com mais de 2 semanas ficam
+// atrás do botão "mostrar detalhes" (um postback). Quando o campo não existe,
+// tenta pelo nome ([STD] / [RPD] / [BLZ], "Rápido", "Blitz").
+export type TimeControl = 'Clássico' | 'Rápido' | 'Blitz';
+
+export async function fetchDetailsHtml(tnr: string): Promise<string> {
+  const url = `https://s2.chess-results.com/tnr${tnr}.aspx?lan=1&art=0&SNode=S0`;
+  const headers = { 'User-Agent': 'minhas-partidas-xadrez' };
+  const get = await fetch(url, { headers });
+  const html = await get.text();
+  const button = html.match(/<input[^>]*id="cb_alleDetails"[^>]*>/)?.[0];
+  if (!button) return html;
+  const fields: Record<string, string> = {};
+  for (const m of html.matchAll(/<input[^>]*type="hidden"[^>]*>/g)) {
+    const n = m[0].match(/name="([^"]*)"/)?.[1];
+    if (n) fields[n] = (m[0].match(/value="([^"]*)"/)?.[1] ?? '').replace(/&amp;/g, '&');
+  }
+  const cookie = (get.headers.getSetCookie?.() ?? []).map((c) => c.split(';')[0]).join('; ');
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded', Cookie: cookie },
+    body: new URLSearchParams({ ...fields, cb_alleDetails: button.match(/value="([^"]*)"/)?.[1] ?? 'show' }),
+  });
+  return res.text();
+}
+
+export function parseTimeControl(detailsHtml: string, name: string): TimeControl | null {
+  const text = stripHtmlTags(detailsHtml.replace(/<script[\s\S]*?<\/script>/g, ''));
+  const field = text.match(/Time control\s*\(([^)]*)\)/i)?.[1]?.toLowerCase() ?? '';
+  if (/blitz/.test(field)) return 'Blitz';
+  if (/rapid/.test(field)) return 'Rápido';
+  if (/standard|classic/.test(field)) return 'Clássico';
+  if (/\[blz\]|blitz/i.test(name)) return 'Blitz';
+  if (/\[rpd\]|r[aá]pido|rapid/i.test(name)) return 'Rápido';
+  if (/\[std\]|cl[aá]ssico|standard/i.test(name)) return 'Clássico';
+  return null;
+}
+
 export function tnrFromUrl(url: string): string {
   let parsed: URL;
   try {
@@ -263,16 +302,17 @@ export function tnrFromUrl(url: string): string {
 export async function fetchFullTournament(url: string): Promise<ParsedTournament> {
   const tnr = tnrFromUrl(url);
   // art=2 é opcional (plano B de partidas e data): se falhar, segue sem ele.
-  const [listHtml, crossHtml, pairHtml] = await Promise.all([
+  const [listHtml, crossHtml, pairHtml, detailsHtml] = await Promise.all([
     fetchPage(tnr, 0),
     fetchPage(tnr, 5),
     fetchPage(tnr, 2, '&rd=1').catch(() => ''),
+    fetchDetailsHtml(tnr).catch(() => ''),
   ]);
-  return buildTournament(tnr, listHtml, crossHtml, pairHtml);
+  return buildTournament(tnr, listHtml, crossHtml, pairHtml, detailsHtml);
 }
 
 // Separado do fetch pra dar pra testar com HTML salvo.
-export function buildTournament(tnr: string, listHtml: string, crossHtml: string, pairHtml = ''): ParsedTournament {
+export function buildTournament(tnr: string, listHtml: string, crossHtml: string, pairHtml = '', detailsHtml = ''): ParsedTournament {
   const listed = parsePlayerList(listHtml);
   const cross = parseCrosstable(crossHtml);
   const name = tournamentName(listHtml);
@@ -381,6 +421,7 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
     game_count: gameList.length,
     cbx_id_count: playerList.filter((p) => p.cbx_id).length,
     homologated: true,
+    time_control: parseTimeControl(detailsHtml, name),
     players: playerList,
     games: gameList,
   };

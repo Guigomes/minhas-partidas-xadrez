@@ -6,6 +6,7 @@ import { useTournaments } from '@/lib/hooks/use-tournaments';
 import { normalizeText } from '@/lib/tournament/player-search';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
 import { formatDate } from '@/lib/utils/date';
@@ -13,14 +14,16 @@ import { formatDate } from '@/lib/utils/date';
 export default function TournamentsPage() {
   const { data: tournaments, isLoading } = useTournaments();
   const [search, setSearch] = useState('');
+  const [timeControl, setTimeControl] = useState('');
 
   const filtered = useMemo(() => {
     const words = normalizeText(search).split(/\s+/).filter(Boolean);
     return (tournaments ?? []).filter((t) => {
+      if (timeControl && (t.time_control ?? 'none') !== timeControl) return false;
       const name = normalizeText(t.name);
       return words.every((w) => name.includes(w));
     });
-  }, [tournaments, search]);
+  }, [tournaments, search, timeControl]);
 
   if (isLoading) return <PageSpinner />;
 
@@ -34,13 +37,22 @@ export default function TournamentsPage() {
         </p>
       </div>
 
-      <Input
-        label="Buscar torneio"
-        placeholder="ex.: caxambu, fenac, sub 11 fem"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        hint={`${filtered.length} de ${tournaments?.length ?? 0} torneios`}
-      />
+      <div className="grid gap-3 sm:grid-cols-[1fr_200px]">
+        <Input
+          label="Buscar torneio"
+          placeholder="ex.: caxambu, fenac, sub 11 fem"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          hint={`${filtered.length} de ${tournaments?.length ?? 0} torneios`}
+        />
+        <Select label="Modalidade" value={timeControl} onChange={(e) => setTimeControl(e.target.value)}>
+          <option value="">Todas</option>
+          <option value="Clássico">Clássico</option>
+          <option value="Rápido">Rápido</option>
+          <option value="Blitz">Blitz</option>
+          <option value="none">Não informada</option>
+        </Select>
+      </div>
 
       {!filtered.length ? (
         <EmptyState
@@ -62,6 +74,9 @@ export default function TournamentsPage() {
                   <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                     {t.game_count} partidas
                   </Badge>
+                  {t.time_control && (
+                    <Badge className="bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold">{t.time_control}</Badge>
+                  )}
                   {t.homologated === true && (
                     <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">
                       ✅ Homologado

@@ -36,7 +36,7 @@ export function myMatchesFrom(t: ParsedTournament, cbxId: string, fullName?: str
       opponent: opp.name,
       result: outcome === 'win' ? 'win' : outcome === 'draw' ? 'draw' : 'loss',
       color: isWhite ? 'white' : 'black',
-      time_control: null,
+      time_control: t.time_control,
       opening: null,
       pgn: null,
       notes: notes.join(' · '),

@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { formatDate } from '@/lib/utils/date';
 import type { ParsedTournament } from '@/types/tournament';
@@ -56,6 +57,13 @@ export function TournamentImport() {
       prev.map((it, i) =>
         i === index && it.status === 'ok' ? { ...it, tournament: { ...it.tournament, date, date_exact: true } } : it
       )
+    );
+  }
+
+  function updateTimeControl(index: number, value: string) {
+    const time_control = value ? (value as ParsedTournament['time_control']) : null;
+    setItems((prev) =>
+      prev.map((it, i) => (i === index && it.status === 'ok' ? { ...it, tournament: { ...it.tournament, time_control } } : it))
     );
   }
 
@@ -172,6 +180,17 @@ export function TournamentImport() {
                   }
                 />
 
+                <Select
+                  label="Modalidade"
+                  value={it.tournament.time_control ?? ''}
+                  onChange={(e) => updateTimeControl(i, e.target.value)}
+                >
+                  <option value="">Não informada</option>
+                  <option value="Clássico">Clássico</option>
+                  <option value="Rápido">Rápido</option>
+                  <option value="Blitz">Blitz</option>
+                </Select>
+
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
@@ -226,7 +245,7 @@ export function TournamentImport() {
                     {t.name}
                   </a>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    {formatDate(t.date)} · {t.player_count} jogadores · {t.game_count} partidas ·{' '}
+                    {formatDate(t.date)} · {t.player_count} jogadores · {t.game_count} partidas{t.time_control ? ` · ${t.time_control}` : ''} ·{' '}
                     {t.homologated === true ? 'homologado' : t.homologated === false ? 'não homologado' : 'homologação não informada'}
                   </p>
                 </div>

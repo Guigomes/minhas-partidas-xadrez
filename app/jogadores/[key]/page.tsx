@@ -27,6 +27,7 @@ export default function PlayerPage() {
   const { data: profile, isLoading: loadingProfile } = usePlayer(key);
   const { data: games, isLoading: loadingGames } = usePlayerGames(key);
   const { data: tournaments } = useTournaments();
+  const timeControlByTnr = useMemo(() => new Map((tournaments ?? []).map((t) => [t.tnr, t.time_control ?? null])), [tournaments]);
   const homologatedByTnr = useMemo(() => new Map((tournaments ?? []).map((t) => [t.tnr, t.homologated ?? null])), [tournaments]);
 
   const stats = useMemo(() => {
@@ -216,6 +217,7 @@ export default function PlayerPage() {
               </a>
               <span className="text-xs text-gray-500 dark:text-gray-400">
                 {formatDate(t.date)}
+                {timeControlByTnr.get(tnr) && ` · ${timeControlByTnr.get(tnr)}`}
                 {homologatedByTnr.get(tnr) === true && ' · ✅ homologado'}
                 {homologatedByTnr.get(tnr) === false && ' · não homologado'}
               </span>

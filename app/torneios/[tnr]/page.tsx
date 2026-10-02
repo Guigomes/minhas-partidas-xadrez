@@ -125,6 +125,9 @@ export default function TournamentPage() {
           <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
             {played} partidas jogadas · {tournament.rounds} rodadas
           </Badge>
+          {tournament.time_control && (
+            <Badge className="bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold">{tournament.time_control}</Badge>
+          )}
           {tournament.homologated === true && (
             <Badge className="bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300">✅ Homologado</Badge>
           )}

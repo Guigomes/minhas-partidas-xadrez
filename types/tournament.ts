@@ -57,6 +57,8 @@ export type Tournament = {
   // Homologado (vale rating) ou não; null = não informado. O chess-results
   // não diz isso, então é preenchido na importação.
   homologated: boolean | null;
+  // Modalidade; null = o chess-results não informa e o nome não diz.
+  time_control: 'Clássico' | 'Rápido' | 'Blitz' | null;
 };
 
 // Resposta da rota /api/tournament, antes de gravar no Firestore.

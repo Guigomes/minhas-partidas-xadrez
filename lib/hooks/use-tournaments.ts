@@ -73,6 +73,7 @@ export function useSaveTournament() {
         game_count: t.game_count,
         cbx_id_count: t.cbx_id_count,
         homologated: t.homologated ?? null,
+        time_control: t.time_control ?? null,
       };
       ops.push((b) => b.set(doc(db, TOURNAMENTS, t.tnr), { ...meta, imported_at: serverTimestamp() }));
 
@@ -122,7 +123,7 @@ export function useSaveTournament() {
                 result: g.result,
                 color: g.color,
                 type: 'tournament',
-                time_control: null,
+                time_control: g.time_control ?? null,
                 opening: null,
                 notes: g.notes ?? null,
                 pgn: null,
