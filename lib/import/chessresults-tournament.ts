@@ -5,7 +5,7 @@ import type {
   TournamentPlayer,
 } from '@/types/tournament';
 import { stripHtmlTags } from './html-entities';
-import { nameKey, playerKey } from '../tournament/player-search';
+import { nameKey, normalizeText, playerKey } from '../tournament/player-search';
 
 // Importação do torneio INTEIRO no chess-results (todos os jogadores e todas
 // as partidas), diferente de chessresults.ts, que só pega as partidas do
@@ -309,6 +309,15 @@ async function fetchIdentNumbers(tnr: string, snrs: number[]): Promise<Map<numbe
   return found;
 }
 
+// Torneios de teste (organizadores criam para treinar o Swiss-Manager) não entram na base.
+// A regra olha só o nome (e a categoria, que já vem anexada): a página do chess-results traz
+// o aviso "This is a test tournament" até em torneios reais, então ele não serve de critério.
+const TEST_NAME = /\b(teste|testes|testar|test|tests|testing|simulado|demo)\b/;
+
+export function isTestTournament(name: string): boolean {
+  return TEST_NAME.test(normalizeText(name));
+}
+
 export function tnrFromUrl(url: string): string {
   let parsed: URL;
   try {
@@ -351,6 +360,9 @@ export function buildTournament(tnr: string, listHtml: string, crossHtml: string
   const listed = parsePlayerList(listHtml);
   const cross = parseCrosstable(crossHtml);
   const name = tournamentName(listHtml);
+  if (isTestTournament(name)) {
+    throw { status: 422, message: `Torneio de teste ignorado: "${name}".` };
+  }
   const pairings = parsePairings(pairHtml);
   const listedDate = tournamentDate(listHtml);
   // A data da 1ª rodada é a data real do torneio; a da página é só um palpite.

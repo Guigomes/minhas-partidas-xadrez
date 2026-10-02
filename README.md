@@ -223,6 +223,7 @@ A gravação é feita pelo cliente depois da prévia, em lotes (`writeBatch`). O
 **Limitações**:
 - Torneios com mais de 2 semanas escondem a data de início no chess-results (só aparece depois de um *postback*); a prévia usa a data da última atualização e pede para conferir.
 - Torneios por equipes não são suportados.
+- Torneios de teste são ignorados na importação: o nome (com a categoria) não pode conter as palavras *teste*, *testes*, *testar*, *test*, *testing*, *simulado* ou *demo*. A regra olha só o nome, porque o chess-results mostra o aviso "This is a test tournament" até em torneios reais.
 - Torneios sem a coluna "ID" (escolares, sem rating) identificam o jogador pelo nome: homônimos viram a mesma pessoa e a mesma pessoa com grafias diferentes vira duas.
 
 ---
