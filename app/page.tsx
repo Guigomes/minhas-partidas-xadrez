@@ -14,13 +14,21 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { PageSpinner } from '@/components/ui/spinner';
 import { player } from '@/lib/config/player';
+import { isAdminEmail } from '@/lib/config/admins';
+import { useUser } from '@/lib/hooks/use-auth';
 import { formatDate } from '@/lib/utils/date';
 
 export default function HomePage() {
   const { data: matches, isLoading, isError, refetch } = useMatches();
   const { data: games } = usePlayerGames(`cbx-${player.cbxId}`);
   const { data: tournaments } = useTournaments();
-  const [mode, setMode] = useState('tournament');
+  const { user } = useUser();
+  // Online (Chess.com / Lichess) e partidas avulsas só para o admin logado;
+  // os demais veem só a base de torneios. Regra só no front: os dados
+  // continuam legíveis no Firestore.
+  const isAdmin = isAdminEmail(user?.email);
+  const [selectedMode, setMode] = useState('tournament');
+  const mode = isAdmin ? selectedMode : 'tournament';
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [modality, setModality] = useState('');
@@ -68,6 +76,7 @@ export default function HomePage() {
         </div>
       </section>
       <div className="container-app space-y-7 py-8">
+        {isAdmin && (
         <div
           className="flex flex-wrap gap-2"
           role="group"
@@ -88,6 +97,7 @@ export default function HomePage() {
             </button>
           ))}
         </div>
+        )}
         <details className="card p-5">
           <summary className="cursor-pointer text-sm font-semibold">
             Filtrar período e modalidade
