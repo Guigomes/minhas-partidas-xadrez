@@ -41,6 +41,8 @@ export type TournamentGame = {
   black: TournamentGameSide;
   result: TournamentGameResult;
   player_keys: [PlayerKey, PlayerKey]; // para consulta com array-contains
+  // Lances da partida (PGN), quando o chess-results publica; ausente na maioria dos torneios.
+  pgn?: string | null;
 };
 
 export type Tournament = {

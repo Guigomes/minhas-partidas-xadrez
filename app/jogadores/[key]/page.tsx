@@ -8,6 +8,7 @@ import { OUTCOME_CLASS, OUTCOME_LABEL, outcomeFor, wasPlayed } from '@/lib/tourn
 import { EmptyState } from '@/components/ui/empty-state';
 import { Select } from '@/components/ui/select';
 import { PageSpinner } from '@/components/ui/spinner';
+import { GameViewerButton } from '@/components/tournaments/game-viewer';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
@@ -304,6 +305,7 @@ export default function PlayerPage() {
                         {` · ${formatDate(g.date)} · Rodada ${g.round} · ${g.white.key === key ? '♔ Brancas' : '♚ Pretas'}`}
                         {tc && ` · ${tc}`}
                       </p>
+                      {g.pgn && <GameViewerButton game={g} orientation={g.white.key === key ? 'white' : 'black'} />}
                     </li>
                   );
                 })}
@@ -401,6 +403,7 @@ export default function PlayerPage() {
                               {formatDate(g.date)} · Rodada {g.round} · {isWhite ? '♔ Brancas' : '♚ Pretas'}
                               {tc && ` · ${tc}`}
                             </p>
+                            {g.pgn && <GameViewerButton game={g} orientation={isWhite ? 'white' : 'black'} />}
                           </li>
                         );
                       })}
@@ -452,9 +455,10 @@ export default function PlayerPage() {
                         </Link>
                         {opp.rating && <span className="text-xs text-gray-400 shrink-0">({opp.rating})</span>}
                       </div>
-                      <span className={cn('shrink-0 text-xs font-semibold', OUTCOME_CLASS[o])}>
-                        {OUTCOME_LABEL[o]}
-                      </span>
+                      <div className="shrink-0 flex items-center gap-3">
+                        {g.pgn && <GameViewerButton game={g} orientation={isWhite ? 'white' : 'black'} />}
+                        <span className={cn('text-xs font-semibold', OUTCOME_CLASS[o])}>{OUTCOME_LABEL[o]}</span>
+                      </div>
                     </li>
                   );
                 })}

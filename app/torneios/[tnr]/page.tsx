@@ -11,6 +11,7 @@ import { numberLabel } from '@/lib/tournament/campaigns';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageSpinner } from '@/components/ui/spinner';
+import { GameViewerButton } from '@/components/tournaments/game-viewer';
 import { cn } from '@/lib/utils/cn';
 import { formatDate } from '@/lib/utils/date';
 import type { TournamentGame } from '@/types/tournament';
@@ -254,7 +255,8 @@ export default function TournamentPage() {
           ) : (
             <div className="card divide-y divide-gray-100 dark:divide-gray-800/60">
               {shown.map((g) => (
-                <div key={g.id} className="flex items-center gap-2 px-4 py-2 text-sm">
+                <div key={g.id} className="px-4 py-2 text-sm">
+                  <div className="flex items-center gap-2">
                   <span className="w-8 shrink-0 text-xs text-gray-400">R{g.round}</span>
                   <Link href={`/jogadores/${g.white.key}`} className="flex-1 min-w-0 truncate text-right hover:underline">
                     <span aria-hidden="true">♔ </span>
@@ -267,6 +269,12 @@ export default function TournamentPage() {
                     <span aria-hidden="true">♚ </span>
                     {g.black.name}
                   </Link>
+                  </div>
+                  {g.pgn && (
+                    <div className="mt-1 text-right">
+                      <GameViewerButton game={g} />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
