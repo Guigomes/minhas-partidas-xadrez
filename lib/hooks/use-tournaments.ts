@@ -6,6 +6,7 @@ import {
   arrayUnion,
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   limit,
@@ -283,6 +284,21 @@ export function useTournamentPlayers(tnr: string) {
     queryFn: async (): Promise<PlayerProfile[]> => {
       const snapshot = await getDocs(query(collection(db, PLAYERS), where('tournaments', 'array-contains', tnr)));
       return snapshot.docs.map((d) => toProfile(d.data()));
+    },
+  });
+}
+
+// Contagens agregadas do Firestore (não baixam os documentos).
+export function useBaseCounts() {
+  return useQuery({
+    queryKey: ['base-counts'],
+    staleTime: 5 * 60 * 1000,
+    queryFn: async () => {
+      const [players, pgnGames] = await Promise.all([
+        getCountFromServer(collection(db, PLAYERS)),
+        getCountFromServer(query(collection(db, GAMES), where('pgn', '>', ''))),
+      ]);
+      return { players: players.data().count, pgnGames: pgnGames.data().count };
     },
   });
 }

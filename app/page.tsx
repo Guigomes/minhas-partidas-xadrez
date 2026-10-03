@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import Link from 'next/link';
-import { useTournaments } from '@/lib/hooks/use-tournaments';
+import { useBaseCounts, useTournaments } from '@/lib/hooks/use-tournaments';
 import { groupEvents } from '@/lib/tournament/events';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -18,6 +18,7 @@ function numberLabel(n: number) {
 
 export default function HomePage() {
   const { data: tournaments, isLoading } = useTournaments();
+  const { data: counts } = useBaseCounts();
 
   const events = useMemo(() => groupEvents(tournaments ?? []), [tournaments]);
 
@@ -31,9 +32,7 @@ export default function HomePage() {
     return {
       tournaments: list.length,
       events: events.length,
-      entries: list.reduce((sum, t) => sum + t.player_count, 0),
       games: list.reduce((sum, t) => sum + t.game_count, 0),
-      homologated: list.filter((t) => t.homologated === true).length,
       byModality,
     };
   }, [tournaments, events]);
@@ -86,8 +85,12 @@ export default function HomePage() {
               <Tile label="Eventos" value={numberLabel(stats.events)} />
               <Tile label="Torneios" value={numberLabel(stats.tournaments)} hint="uma por categoria" />
               <Tile label="Partidas" value={numberLabel(stats.games)} />
-              <Tile label="Inscrições" value={numberLabel(stats.entries)} hint="jogadores em cada torneio" />
-              <Tile label="Homologados" value={numberLabel(stats.homologated)} hint={`de ${numberLabel(stats.tournaments)}`} />
+              <Tile label="Jogadores" value={counts ? numberLabel(counts.players) : '—'} hint="únicos" />
+              <Tile
+                label="Partidas completas"
+                value={counts ? numberLabel(counts.pgnGames) : '—'}
+                hint="com todos os lances (PGN)"
+              />
             </section>
 
             <section aria-label="Torneios por modalidade" className="card p-4 sm:p-6">
