@@ -219,15 +219,18 @@ export default function PlayerPage() {
         </div>
       </div>
 
-      <div className={cn('grid grid-cols-2 sm:grid-cols-3 gap-3', pgnCount > 0 ? 'lg:grid-cols-7' : 'lg:grid-cols-6')}>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
         <Stat label="Torneios" value={byTournament.length} active={detail === 'tournaments'} onClick={() => toggleDetail('tournaments')} />
         <Stat label="Partidas" value={stats.played} href="#partidas" />
         <Stat label="Vitórias" value={stats.wins} className="text-brand-600 dark:text-brand-400" active={detail === 'win'} onClick={() => toggleDetail('win')} />
         <Stat label="Empates" value={stats.draws} className="text-gray-600 dark:text-gray-300" active={detail === 'draw'} onClick={() => toggleDetail('draw')} />
         <Stat label="Derrotas" value={stats.losses} className="text-red-600 dark:text-red-400" active={detail === 'loss'} onClick={() => toggleDetail('loss')} />
-        {pgnCount > 0 && (
-          <Stat label="Com lances" value={pgnCount} active={detail === 'pgn'} onClick={() => toggleDetail('pgn')} />
-        )}
+        <Stat
+          label="Com lances"
+          value={pgnCount}
+          active={detail === 'pgn'}
+          onClick={pgnCount > 0 ? () => toggleDetail('pgn') : undefined}
+        />
         <Stat label="Aproveitamento" value={stats.played ? `${numberLabel(stats.pct)}%` : '—'} />
       </div>
       {stats.forfeits > 0 && (

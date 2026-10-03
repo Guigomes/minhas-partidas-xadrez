@@ -141,6 +141,15 @@ export default function TournamentPage() {
           <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
             {played} partidas jogadas · {tournament.rounds} rodadas
           </Badge>
+          <Badge
+            className={
+              pgnCount > 0
+                ? 'bg-brand-50 text-brand-700 dark:bg-brand-950 dark:text-brand-300'
+                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+            }
+          >
+            {pgnCount > 0 ? `♟ ${pgnCount} de ${played} com lances` : 'sem lances (PGN) publicados'}
+          </Badge>
           {tournament.time_control && (
             <Badge className="bg-gold/20 text-yellow-700 dark:bg-gold/10 dark:text-gold">{tournament.time_control}</Badge>
           )}
