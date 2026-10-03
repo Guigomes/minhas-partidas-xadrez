@@ -75,6 +75,7 @@ export function useSaveTournament() {
         cbx_id_count: t.cbx_id_count,
         homologated: t.homologated ?? null,
         time_control: t.time_control ?? null,
+        ...(t.pgn_count ? { pgn_count: t.pgn_count } : {}),
       };
       ops.push((b) => b.set(doc(db, TOURNAMENTS, t.tnr), { ...meta, imported_at: serverTimestamp() }));
 

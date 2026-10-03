@@ -5,6 +5,7 @@ import type {
   TournamentPlayer,
 } from '@/types/tournament';
 import { stripHtmlTags } from './html-entities';
+import { fetchPgns } from './chessresults-pgn';
 import { nameKey, normalizeText, playerKey } from '../tournament/player-search';
 
 // Importação do torneio INTEIRO no chess-results (todos os jogadores e todas
@@ -349,7 +350,19 @@ export async function fetchFullTournament(url: string): Promise<ParsedTournament
   } catch {
     // lista inválida: buildTournament devolve o erro certo
   }
-  return buildTournament(tnr, listHtml, crossHtml, pairHtml, detailsHtml, idents);
+  const tournament = buildTournament(tnr, listHtml, crossHtml, pairHtml, detailsHtml, idents);
+  // Torneios com tabuleiro eletrônico publicam os lances: importa o PGN de cada partida junto.
+  try {
+    const pgns = await fetchPgns(tnr, tournament.games);
+    for (const g of tournament.games) {
+      const pgn = pgns.get(g.id);
+      if (pgn) g.pgn = pgn;
+    }
+    if (pgns.size) tournament.pgn_count = pgns.size;
+  } catch {
+    // sem os lances, a importação segue só com os resultados
+  }
+  return tournament;
 }
 
 // Separado do fetch pra dar pra testar com HTML salvo.
